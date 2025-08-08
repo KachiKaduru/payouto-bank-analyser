@@ -22,8 +22,8 @@ FIELD_MAPPINGS = {
         "value date",
         "effective date",
         "value. date",
-        "date",
         "valuedate",
+        "date",
     ],
     "REFERENCE": [
         "reference",
@@ -40,18 +40,27 @@ FIELD_MAPPINGS = {
         "comment",
         "transaction details",
     ],
-    "DEBIT": ["debit", "withdrawal", "dr", "withdrawal(dr)", "debits", "money out"],
+    "DEBIT": [
+        "debit",
+        "withdrawal",
+        "dr",
+        "withdrawal(DR)",
+        "debits",
+        "money out",
+        "debit (NGN)",
+    ],
     "CREDIT": [
         "credit",
         "deposit",
         "cr",
-        "deposit(cr)",
+        "deposit(CR)",
         "credits",
         "money in",
         "credit(₦)",
+        "credit (NGN)",
     ],
-    "BALANCE": ["balance", "bal", "account balance", " debit(₦)"],
-    "AMOUNT": ["amount", "txn amount", "transaction amount", " balance(₦)"],
+    "BALANCE": ["balance", "bal", "account balance", " balance(₦)", "balance (NGN)"],
+    "AMOUNT": ["amount", "txn amount", "transaction amount", "balance(₦)"],
 }
 
 
