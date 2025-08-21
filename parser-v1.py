@@ -41,7 +41,6 @@ FIELD_MAPPINGS = {
         "comment",
         "transaction details",
         "details",
-        "descr",
     ],
     "DEBIT": [
         "debit",

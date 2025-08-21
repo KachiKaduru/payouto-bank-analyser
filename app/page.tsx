@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ParsedRow } from "./_types";
+import * as XLSX from "xlsx"; // Excel export library
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
@@ -37,6 +38,31 @@ export default function Home() {
     }
   };
 
+  // 📦 Export with preserved column order
+  const handleExport = () => {
+    if (data.length === 0) return;
+
+    // Get headers in the same order as displayed
+    const headers = Object.keys(data[0]);
+
+    // Convert JSON to array-of-arrays with headers first
+    const worksheetData = [
+      headers,
+      ...data.map((row) => headers.map((header) => row[header as keyof ParsedRow])),
+    ];
+
+    // Create worksheet & workbook
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Bank Statement");
+
+    // Trigger download
+    const originalName = file?.name || "bank_statement.pdf";
+    const excelName = originalName.replace(/\.pdf$/i, "") + ".xlsx";
+
+    XLSX.writeFile(workbook, excelName);
+  };
+
   return (
     <div className="min-h-screen p-6 bg-gray-50">
       <h1 className="text-2xl font-bold mb-6">Bank Statement Parser</h1>
@@ -55,6 +81,15 @@ export default function Home() {
         >
           {loading ? "Parsing..." : "Upload & Parse"}
         </button>
+
+        {data.length > 0 && (
+          <button
+            onClick={handleExport}
+            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+          >
+            Export as Excel
+          </button>
+        )}
       </div>
 
       {error && <div className="text-red-500 font-medium mb-4">{error}</div>}
