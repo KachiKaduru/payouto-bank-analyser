@@ -2,22 +2,32 @@
 
 import { useState } from "react";
 import { ParsedRow } from "./_types";
-import * as XLSX from "xlsx"; // Excel export library
+import * as XLSX from "xlsx";
+import { banksList } from "./_constants";
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
+  const [bank, setBank] = useState<string>("");
   const [data, setData] = useState<ParsedRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file) {
+      setError("No file uploaded");
+      return;
+    }
+    if (!bank) {
+      setError("Please select a bank");
+      return;
+    }
     setLoading(true);
     setError("");
 
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("bank", bank); // Add bank to form data
 
       const res = await fetch("/api/parse", {
         method: "POST",
@@ -68,6 +78,23 @@ export default function Home() {
       <h1 className="text-2xl font-bold mb-6">Bank Statement Parser</h1>
 
       <div className="flex gap-4 items-center mb-4">
+        {/* Bank Dropdown */}
+        <select
+          value={bank}
+          onChange={(e) => setBank(e.target.value)}
+          className="border p-2 rounded-md w-[200px]"
+          required
+        >
+          <option value="" disabled>
+            Select Bank
+          </option>
+          {banksList.map((bankOption) => (
+            <option key={bankOption.value} value={bankOption.value}>
+              {bankOption.label}
+            </option>
+          ))}
+        </select>
+
         <input
           type="file"
           accept="application/pdf"
@@ -76,7 +103,7 @@ export default function Home() {
         />
         <button
           onClick={handleUpload}
-          disabled={!file || loading}
+          disabled={!file || !bank || loading}
           className="bg-blue-600 text-white px-4 py-2 rounded-md disabled:opacity-50 hover:bg-blue-700"
         >
           {loading ? "Parsing..." : "Upload & Parse"}

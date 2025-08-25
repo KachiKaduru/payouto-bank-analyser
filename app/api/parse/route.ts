@@ -9,9 +9,14 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
+    const bank = formData.get("bank") as string; // Get bank from dropdown
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    }
+
+    if (!bank) {
+      return NextResponse.json({ error: "No bank selected" }, { status: 400 });
     }
 
     if (file.type !== "application/pdf") {
@@ -28,8 +33,10 @@ export async function POST(req: NextRequest) {
     await writeFile(tempPath, buffer);
 
     try {
-      // Run Python script
-      const result = spawnSync("python", [join(process.cwd(), "parser.py"), tempPath], {
+      // Run Python dispatch script with absolute path and correct cwd
+      const projectRoot = process.cwd(); // Should be the root of your Next.js project
+      const dispatchPath = join(projectRoot, "parsers", "dispatch.py");
+      const result = spawnSync("python", [dispatchPath, tempPath, "--bank", bank.toLowerCase()], {
         encoding: "utf-8",
         stdio: ["pipe", "pipe", "pipe"],
         maxBuffer: 50 * 1024 * 1024, // Increase buffer to 50MB
