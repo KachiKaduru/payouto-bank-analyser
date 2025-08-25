@@ -8,16 +8,6 @@ from validator import is_valid_parse
 from main_parser import main_parse
 
 
-def is_valid_parse(transactions: List[Dict[str, str]]) -> bool:
-    if not transactions:
-        return False
-    true_checks = sum(
-        1 for txn in transactions if txn.get("Check", "").upper() == "TRUE"
-    )
-    success_rate = true_checks / len(transactions)
-    return success_rate >= 0.9  # 90% threshold; adjust as needed
-
-
 def dispatch_parse(path: str, bank: str = None) -> List[Dict[str, str]]:
     if not bank:
         raise ValueError("Bank must be specified via --bank.")

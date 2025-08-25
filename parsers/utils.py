@@ -15,6 +15,8 @@ FIELD_MAPPINGS = {
         "post date",
         "posted date",
         "trans. date",
+        "posted\ndate",
+        "create date",
     ],
     "VAL_DATE": [
         "val date",
@@ -23,6 +25,8 @@ FIELD_MAPPINGS = {
         "value. date",
         "valuedate",
         "date",
+        "value\ndate",
+        "VAL_DATE",
     ],
     "REFERENCE": [
         "reference",
@@ -31,6 +35,8 @@ FIELD_MAPPINGS = {
         "txn id",
         "ref. number",
         "reference number",
+        "reference\nnumber",
+        "check no",
     ],
     "REMARKS": [
         "remarks",
@@ -40,6 +46,8 @@ FIELD_MAPPINGS = {
         "transaction details",
         "details",
         "descr",
+        "REMARKS",
+        "description/payee/memo",
     ],
     "DEBIT": [
         "debit",
@@ -49,6 +57,8 @@ FIELD_MAPPINGS = {
         "debits",
         "money out",
         "debit (NGN)",
+        "DEBIT",
+        "debit amount",
     ],
     "CREDIT": [
         "credit",
@@ -59,8 +69,17 @@ FIELD_MAPPINGS = {
         "money in",
         "credit(₦)",
         "credit (NGN)",
+        "CREDIT",
+        "credit amount",
     ],
-    "BALANCE": ["balance", "bal", "account balance", " balance(₦)", "balance (NGN)"],
+    "BALANCE": [
+        "balance",
+        "bal",
+        "account balance",
+        " balance(₦)",
+        "balance (NGN)",
+        "BALANCE",
+    ],
     "AMOUNT": ["amount", "txn amount", "transaction amount", "balance(₦)"],
 }
 
