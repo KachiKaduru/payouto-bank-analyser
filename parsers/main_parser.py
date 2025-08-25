@@ -12,7 +12,7 @@ def main_parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"Processing page {page_num}", file=sys.stderr)
+                print(f"(main parser): Processing page {page_num}", file=sys.stderr)
                 # Table extraction settings
                 table_settings = {
                     "vertical_strategy": "lines",
@@ -75,7 +75,7 @@ def main_parse(path: str) -> List[Dict[str, str]]:
 
                         if not global_headers:
                             print(
-                                f"No headers found by page {page_num}, skipping table",
+                                f"(main parser): No headers found by page {page_num}, skipping table",
                                 file=sys.stderr,
                             )
                             continue
@@ -176,6 +176,41 @@ def main_parse(path: str) -> List[Dict[str, str]]:
             [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
         )
 
+    except Exception as e:
+        print(f"Error processing PDF: {e}", file=sys.stderr)
+        return []
+
+
+# Updated version to use PdfReader
+def parse_with_reader(reader: PdfReader) -> List[Dict[str, str]]:
+    transactions = []
+    global_headers = None
+    global_header_map = None
+
+    try:
+        # Use reader.pages directly
+        for page_num, page in enumerate(reader.pages, 1):
+            print(f"Processing page {page_num}", file=sys.stderr)
+            # Convert PdfReader page to pdfplumber page
+            with pdfplumber.open(pdf_path) as pdf:  # Need original path for pdfplumber
+                plumber_page = pdf.pages[page_num - 1]  # Sync page numbers
+                table_settings = {
+                    "vertical_strategy": "lines",
+                    "horizontal_strategy": "lines",
+                    "explicit_vertical_lines": [],
+                    "explicit_horizontal_lines": [],
+                    "snap_tolerance": 3,
+                    "join_tolerance": 3,
+                    "min_words_vertical": 3,
+                    "min_words_horizontal": 1,
+                    "text_tolerance": 1,
+                }
+                tables = plumber_page.extract_tables(table_settings)
+                # ... (rest of your table processing logic)
+
+        return calculate_checks(
+            [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
+        )
     except Exception as e:
         print(f"Error processing PDF: {e}", file=sys.stderr)
         return []

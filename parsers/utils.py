@@ -2,6 +2,7 @@ import re
 import sys
 from typing import List, Dict
 from datetime import datetime
+from PyPDF2 import PdfReader
 
 TOLERANCE = 0.01
 
@@ -17,6 +18,7 @@ FIELD_MAPPINGS = {
         "trans. date",
         "posted\ndate",
         "trans\ndate",
+        "transaction\ndate",
         "create date",
     ],
     "VAL_DATE": [
@@ -38,6 +40,7 @@ FIELD_MAPPINGS = {
         "reference number",
         "reference\nnumber",
         "check no",
+        "channel",
     ],
     "REMARKS": [
         "remarks",
@@ -60,6 +63,7 @@ FIELD_MAPPINGS = {
         "debit (NGN)",
         "DEBIT",
         "debit amount",
+        "pay out",
     ],
     "CREDIT": [
         "credit",
@@ -72,6 +76,7 @@ FIELD_MAPPINGS = {
         "credit (NGN)",
         "CREDIT",
         "credit amount",
+        "pay in",
     ],
     "BALANCE": [
         "balance",
@@ -82,6 +87,18 @@ FIELD_MAPPINGS = {
         "BALANCE",
     ],
     "AMOUNT": ["amount", "txn amount", "transaction amount", "balance(₦)"],
+}
+
+MAIN_TABLE_SETTINGS = {
+    "vertical_strategy": "lines",
+    "horizontal_strategy": "lines",
+    "explicit_vertical_lines": [],
+    "explicit_horizontal_lines": [],
+    "snap_tolerance": 3,
+    "join_tolerance": 3,
+    "min_words_vertical": 3,
+    "min_words_horizontal": 1,
+    "text_tolerance": 1,
 }
 
 
@@ -156,3 +173,18 @@ def calculate_checks(transactions: List[Dict[str, str]]) -> List[Dict[str, str]]
         prev_balance = current_balance
 
     return updated
+
+
+def decrypt_pdf(pdf_path: str, password: str) -> PdfReader:
+    """Decrypt a PDF and return the PdfReader object."""
+    try:
+        reader = PdfReader(pdf_path)
+        if reader.is_encrypted:
+            reader.decrypt(password)
+            print("PDF decrypted successfully.")
+        else:
+            print("PDF is not encrypted.")
+        return reader
+    except Exception as e:
+        print(f"Error decrypting PDF: {e}")
+        raise

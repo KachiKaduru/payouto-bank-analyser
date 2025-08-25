@@ -23,7 +23,7 @@ def dispatch_parse(path: str, bank: str = None) -> List[Dict[str, str]]:
         result = main_parse(path)
         if is_valid_parse(result):
             return result
-        raise ValueError(f"No suitable parser for {bank} statement.")
+        raise ValueError(f"No suitable parser for {bank} statement. (dispatch.py)")
 
     parser_func: Callable[[str], List[Dict[str, str]]] = detector(path)
     if not parser_func:
