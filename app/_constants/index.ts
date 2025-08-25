@@ -25,3 +25,8 @@ export const FIELD_MAPPINGS = {
   BALANCE: ["balance", "bal", "account balance", " balance(₦)", "balance (NGN)"],
   AMOUNT: ["amount", "txn amount", "transaction amount", "balance(₦)"],
 };
+
+export const banksList = [
+  { id: 1, value: "first-bank", label: "First Bank" },
+  { id: 2, value: "zenith", label: "Zenith Bank" },
+];
