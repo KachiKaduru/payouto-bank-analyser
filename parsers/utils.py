@@ -16,6 +16,7 @@ FIELD_MAPPINGS = {
         "posted date",
         "trans. date",
         "posted\ndate",
+        "trans\ndate",
         "create date",
     ],
     "VAL_DATE": [
