@@ -1,6 +1,5 @@
-import os
-import re
 import sys
+import re
 from typing import List, Dict
 from datetime import datetime
 from PyPDF2 import PdfReader, PdfWriter
@@ -9,7 +8,7 @@ import pikepdf
 
 TOLERANCE = 0.01
 
-# Field name mappings for normalization (unchanged)
+## CONSTANTS
 FIELD_MAPPINGS = {
     "TXN_DATE": [
         "txn date",
@@ -85,7 +84,7 @@ FIELD_MAPPINGS = {
         "balance",
         "bal",
         "account balance",
-        " balance(₦)",
+        "balance(₦)",
         "balance (NGN)",
         "BALANCE",
     ],
@@ -104,7 +103,20 @@ MAIN_TABLE_SETTINGS = {
     "text_tolerance": 1,
 }
 
+STANDARDIZED_ROW = {
+    "TXN_DATE": "",
+    "VAL_DATE": "",
+    "REFERENCE": "",
+    "REMARKS": "",
+    "DEBIT": "0.00",
+    "CREDIT": "0.00",
+    "BALANCE": "0.00",
+    "Check": "",
+    "Check 2": "",
+}
 
+
+# FUNCTIONS
 def to_float(value: str) -> float:
     if not value or value.strip() == "":
         return 0.0
@@ -176,6 +188,29 @@ def calculate_checks(transactions: List[Dict[str, str]]) -> List[Dict[str, str]]
         prev_balance = current_balance
 
     return updated
+
+
+def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
+    standardized_row = STANDARDIZED_ROW
+
+    if len(row) < len(headers):
+        row.extend([""] * (len(headers) - len(row)))
+
+    row_dict = {headers[i]: row[i] if i < len(row) else "" for i in range(len(headers))}
+
+    standardized_row["TXN_DATE"] = normalize_date(
+        row_dict.get("TXN_DATE", row_dict.get("VAL_DATE", ""))
+    )
+    standardized_row["VAL_DATE"] = normalize_date(
+        row_dict.get("VAL_DATE", row_dict.get("TXN_DATE", ""))
+    )
+    standardized_row["REFERENCE"] = row_dict.get("REFERENCE", "")
+    standardized_row["REMARKS"] = row_dict.get("REMARKS", "")
+    standardized_row["DEBIT"] = row_dict.get("DEBIT", "0.00")
+    standardized_row["CREDIT"] = row_dict.get("CREDIT", "0.00")
+    standardized_row["BALANCE"] = row_dict.get("BALANCE", "0.00")
+
+    return standardized_row
 
 
 def decrypt_pdf(input_path: str, password: str = None) -> str:

@@ -27,6 +27,15 @@ export const FIELD_MAPPINGS = {
 };
 
 export const banksList = [
-  { id: 1, value: "first-bank", label: "First Bank" },
-  { id: 2, value: "zenith", label: "Zenith Bank" },
+  { id: 1, value: "access", label: "Access Bank" },
+  { id: 2, value: "fcmb", label: "FCMB" },
+  { id: 3, value: "fidelity", label: "Fidelity Bank" },
+  { id: 4, value: "first_bank", label: "First Bank" },
+  { id: 5, value: "gtb", label: "GT Bank" },
+  { id: 6, value: "stanbic", label: "Stanbic IBTC Bank" },
+  { id: 6, value: "sterling", label: "Sterling Bank" },
+  { id: 7, value: "uba", label: "UBA" },
+  { id: 8, value: "union", label: "Union Bank" },
+  { id: 9, value: "wema", label: "WEMA Bank" },
+  { id: 10, value: "zenith", label: "Zenith Bank" },
 ];
