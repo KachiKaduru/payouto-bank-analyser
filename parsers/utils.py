@@ -1,8 +1,11 @@
+import os
 import re
 import sys
 from typing import List, Dict
 from datetime import datetime
-from PyPDF2 import PdfReader
+from PyPDF2 import PdfReader, PdfWriter
+import tempfile
+import pikepdf
 
 TOLERANCE = 0.01
 
@@ -175,16 +178,47 @@ def calculate_checks(transactions: List[Dict[str, str]]) -> List[Dict[str, str]]
     return updated
 
 
-def decrypt_pdf(pdf_path: str, password: str) -> PdfReader:
-    """Decrypt a PDF and return the PdfReader object."""
+def decrypt_pdf(input_path: str, password: str = None) -> str:
+    """
+    Decrypt a password-protected PDF.
+    1. Try PyPDF2 first (fast, works for simple encryption).
+    2. If PyPDF2 fails, fallback to pikepdf (handles stronger encryption).
+
+    Returns the path to the decrypted PDF (temp file) if successful,
+    or the original path if unencrypted. Returns None on failure.
+    """
+    # ---- Try PyPDF2 ----
     try:
-        reader = PdfReader(pdf_path)
+        reader = PdfReader(input_path)
         if reader.is_encrypted:
-            reader.decrypt(password)
-            print("PDF decrypted successfully.")
+            if not password:
+                raise ValueError("Encrypted PDF detected. Please provide a password.")
+            result = reader.decrypt(password)
+            if result:  # Success (1 or True)
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".pdf"
+                ) as temp_file:
+                    writer = PdfWriter()
+                    for page in reader.pages:
+                        writer.add_page(page)
+                    writer.write(temp_file)
+                print("✅ Decrypted successfully with PyPDF2")
+                return temp_file.name
+            else:
+                print("⚠️ PyPDF2 failed, trying pikepdf...")
         else:
-            print("PDF is not encrypted.")
-        return reader
+            print("ℹ️ PDF is not encrypted")
+            return input_path
     except Exception as e:
-        print(f"Error decrypting PDF: {e}")
-        raise
+        print(f"⚠️ PyPDF2 error: {e} → trying pikepdf...")
+
+    # ---- Fallback: pikepdf ----
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+            with pikepdf.open(input_path, password=password) as pdf:
+                pdf.save(temp_file.name)
+        print("✅ Decrypted successfully with pikepdf")
+        return temp_file.name
+    except Exception as e:
+        print(f"❌ Both PyPDF2 and pikepdf failed: {e}")
+        return None
