@@ -11,6 +11,8 @@ export default function Home() {
   const [data, setData] = useState<ParsedRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [password, setPassword] = useState<string>("");
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
 
   const handleUpload = async () => {
     if (!file) {
@@ -23,11 +25,15 @@ export default function Home() {
     }
     setLoading(true);
     setError("");
+    setShowPasswordInput(false); // Reset password input visibility
 
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("bank", bank); // Add bank to form data
+      if (showPasswordInput && password) {
+        formData.append("password", password);
+      }
 
       const res = await fetch("/api/parse", {
         method: "POST",
@@ -37,14 +43,25 @@ export default function Home() {
       const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(result.error || "Failed to parse file.");
+        if (result.error.includes("Please provide a password")) {
+          setShowPasswordInput(true);
+          setError(result.error);
+        } else {
+          throw new Error(result.error || "Failed to parse file.");
+        }
+      } else {
+        setData(result || []);
       }
-
-      setData(result || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRetryWithPassword = () => {
+    if (password && showPasswordInput) {
+      handleUpload(); // Retry with the entered password
     }
   };
 
@@ -108,6 +125,25 @@ export default function Home() {
         >
           {loading ? "Parsing..." : "Upload & Parse"}
         </button>
+
+        {showPasswordInput && (
+          <div className="flex gap-4 items-center mb-4">
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter PDF password"
+              className="border p-2 rounded-md"
+            />
+            <button
+              onClick={handleRetryWithPassword}
+              disabled={!password || loading}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md disabled:opacity-50 hover:bg-blue-700"
+            >
+              {loading ? "Decrypting..." : "Decrypt & Parse"}
+            </button>
+          </div>
+        )}
 
         {data.length > 0 && (
           <button
