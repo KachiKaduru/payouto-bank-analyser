@@ -5,11 +5,9 @@ import os
 import tempfile
 from typing import List, Dict, Callable
 import importlib
-import pikepdf
 from PyPDF2 import PdfReader, PdfWriter
 from validator import is_valid_parse
 from main_parser import main_parse
-from utils import decrypt_pdf
 
 
 def dispatch_parse(
@@ -40,12 +38,6 @@ def dispatch_parse(
                 effective_path = temp_file_path
         else:
             print("PDF is not encrypted.")
-
-        # temp_file_path = decrypt_pdf(pdf_path, password)
-        # if temp_file_path:
-        #     effective_path = temp_file_path
-        # elif temp_file_path is None:
-        #     raise ValueError("Failed to decrypt PDF with provided password.")
 
         # Proceed with parsing using the effective path
         try:
