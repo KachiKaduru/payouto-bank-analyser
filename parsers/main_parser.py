@@ -12,7 +12,7 @@ def main_parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"Processing page {page_num}", file=sys.stderr)
+                print(f"(main parser): Processing page {page_num}", file=sys.stderr)
                 # Table extraction settings
                 table_settings = {
                     "vertical_strategy": "lines",
@@ -75,7 +75,7 @@ def main_parse(path: str) -> List[Dict[str, str]]:
 
                         if not global_headers:
                             print(
-                                f"No headers found by page {page_num}, skipping table",
+                                f"(main parser): No headers found by page {page_num}, skipping table",
                                 file=sys.stderr,
                             )
                             continue

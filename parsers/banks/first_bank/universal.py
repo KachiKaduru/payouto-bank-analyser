@@ -48,7 +48,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                                 if h in FIELD_MAPPINGS
                             }
                             print(
-                                f"Stored global headers: {global_headers}",
+                                f"Stored global headers: {global_headers}, (first_bank/universal.py)",
                                 file=sys.stderr,
                             )
                             data_rows = table[1:]
@@ -70,7 +70,7 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                         if not global_headers:
                             print(
-                                f"No headers found by page {page_num}, skipping table",
+                                f"No headers found by page {page_num}, skipping table (first_bank/universal.py)",
                                 file=sys.stderr,
                             )
                             continue
@@ -107,7 +107,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                                 "REMARKS": row_dict.get("REMARKS", ""),
                                 "DEBIT": "",
                                 "CREDIT": "",
-                                "BALANCE": row_dict.get("BALANCE", ""),
+                                "BALANCE": row_dict.get("BALANCE", "") or "",
                                 "Check": "",
                                 "Check 2": "",
                             }
