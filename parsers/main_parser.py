@@ -181,39 +181,6 @@ def main_parse(path: str) -> List[Dict[str, str]]:
         return []
 
 
-def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
-    standardized_row = {
-        "TXN_DATE": "",
-        "VAL_DATE": "",
-        "REFERENCE": "",
-        "REMARKS": "",
-        "DEBIT": "0.00",
-        "CREDIT": "0.00",
-        "BALANCE": "0.00",
-        "Check": "",
-        "Check 2": "",
-    }
-
-    if len(row) < len(headers):
-        row.extend([""] * (len(headers) - len(row)))
-
-    row_dict = {headers[i]: row[i] if i < len(row) else "" for i in range(len(headers))}
-
-    standardized_row["TXN_DATE"] = normalize_date(
-        row_dict.get("TXN_DATE", row_dict.get("VAL_DATE", ""))
-    )
-    standardized_row["VAL_DATE"] = normalize_date(
-        row_dict.get("VAL_DATE", row_dict.get("TXN_DATE", ""))
-    )
-    standardized_row["REFERENCE"] = row_dict.get("REFERENCE", "")
-    standardized_row["REMARKS"] = row_dict.get("REMARKS", "")
-    standardized_row["DEBIT"] = row_dict.get("DEBIT", "0.00")
-    standardized_row["CREDIT"] = row_dict.get("CREDIT", "0.00")
-    standardized_row["BALANCE"] = row_dict.get("BALANCE", "0.00")
-
-    return standardized_row
-
-
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python main_parser.py path/to/statement.pdf", file=sys.stderr)

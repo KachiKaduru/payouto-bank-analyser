@@ -118,9 +118,10 @@ export default function Home() {
           onChange={(e) => setFile(e.target.files?.[0] || null)}
           className="border p-2 rounded-md file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-500 file:text-white hover:file:bg-blue-600"
         />
+
         <button
           onClick={handleUpload}
-          disabled={!file || !bank || loading}
+          disabled={!file || !bank || loading || showPasswordInput}
           className="bg-blue-600 text-white px-4 py-2 rounded-md disabled:opacity-50 hover:bg-blue-700"
         >
           {loading ? "Parsing..." : "Upload & Parse"}
