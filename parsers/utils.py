@@ -12,6 +12,7 @@ TOLERANCE = 0.01
 FIELD_MAPPINGS = {
     "TXN_DATE": [
         "txn date",
+        "trans",
         "trans date",
         "transaction date",
         "date",
@@ -24,6 +25,7 @@ FIELD_MAPPINGS = {
         "create date",
     ],
     "VAL_DATE": [
+        "value",
         "val date",
         "value date",
         "effective date",
@@ -87,6 +89,7 @@ FIELD_MAPPINGS = {
         "balance(₦)",
         "balance (NGN)",
         "BALANCE",
+        "",
     ],
     "AMOUNT": ["amount", "txn amount", "transaction amount", "balance(₦)"],
 }
