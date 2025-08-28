@@ -9,6 +9,8 @@ from PyPDF2 import PdfReader, PdfWriter
 from validator import is_valid_parse
 from main_parser import main_parse
 
+# from banks.access.detector import detect_variant
+
 
 def dispatch_parse(
     pdf_path: str, bank: str = None, password: str = None
@@ -41,12 +43,12 @@ def dispatch_parse(
 
         # Proceed with parsing using the effective path
         try:
-            bank_module_path = f"parsers.banks.{bank.replace('-', '_')}"
+            bank_module_path = f"banks.{bank.replace('-', '_')}"
             detector_module = importlib.import_module(f"{bank_module_path}.detector")
             detector = detector_module.detect_variant
         except (ImportError, AttributeError):
             print(
-                f"No specific parsers for bank '{bank}', using main parser",
+                f"No specific parsers for bank '{bank}' (dispatch.py)",
                 file=sys.stderr,
             )
             result = main_parse(effective_path)
