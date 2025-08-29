@@ -44,7 +44,7 @@ FIELD_MAPPINGS = {
         "reference number",
         "reference\nnumber",
         "check no",
-        'chq\nno',
+        "chq\nno",
         "channel",
     ],
     "REMARKS": [
@@ -138,8 +138,8 @@ def normalize_date(date_str: str) -> str:
         return ""
 
     # Clean up multiple spaces and fix dash+space issue
-    cleaned = re.sub(r"\s+", " ", date_str.strip())        # collapse spaces
-    cleaned = re.sub(r"-\s+", "-", cleaned)                # remove space after dash
+    cleaned = re.sub(r"\s+", " ", date_str.strip())  # collapse spaces
+    cleaned = re.sub(r"-\s+", "-", cleaned)  # remove space after dash
 
     for fmt in [
         "%d-%b-%Y",
@@ -163,6 +163,7 @@ def normalize_date(date_str: str) -> str:
 
     print(f"Warning: Could not parse date '{date_str}'", file=sys.stderr)
     return date_str
+
 
 def normalize_column_name(col: str) -> str:
     if not col:
@@ -222,7 +223,7 @@ def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
     return standardized_row
 
 
-def decrypt_pdf(input_path: str, password: str = '') -> str:
+def decrypt_pdf(input_path: str, password: str = "") -> str:
     """
     Decrypt a password-protected PDF.
     1. Try PyPDF2 first (fast, works for simple encryption).
@@ -265,4 +266,4 @@ def decrypt_pdf(input_path: str, password: str = '') -> str:
         return temp_file.name
     except Exception as e:
         print(f"❌ Both PyPDF2 and pikepdf failed: {e}")
-        return ''
+        return ""

@@ -1,15 +1,7 @@
 import pdfplumber
-import re
 import sys
 from typing import List, Dict
-from utils import (
-    FIELD_MAPPINGS,
-    to_float,
-    normalize_column_name,
-    normalize_date,
-    parse_text_row,
-    calculate_checks,
-)
+from parsers.utils import *  # Import shared: to_float, normalize_date, etc.
 
 
 def parse(path: str) -> List[Dict[str, str]]:
@@ -20,7 +12,7 @@ def parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"(access parser): Processing page {page_num}", file=sys.stderr)
+                print(f"Processing page {page_num}", file=sys.stderr)
                 # Table extraction settings
                 table_settings = {
                     "vertical_strategy": "lines",
@@ -49,7 +41,6 @@ def parse(path: str) -> List[Dict[str, str]]:
                         )
 
                         if is_header_row and not global_headers:
-                            # Store headers from the first page with headers
                             global_headers = normalized_first_row
                             global_header_map = {
                                 i: h
@@ -60,25 +51,21 @@ def parse(path: str) -> List[Dict[str, str]]:
                                 f"Stored global headers: {global_headers}",
                                 file=sys.stderr,
                             )
-                            # Process data rows (skip header row)
                             data_rows = table[1:]
                         elif is_header_row and global_headers:
-                            # Check if first row matches global_headers
                             if normalized_first_row == global_headers:
                                 print(
                                     f"Skipping repeated header row on page {page_num}",
                                     file=sys.stderr,
                                 )
-                                data_rows = table[1:]  # Skip header row
+                                data_rows = table[1:]
                             else:
-                                # Treat as data if different headers
                                 print(
                                     f"Different headers on page {page_num}, treating as data",
                                     file=sys.stderr,
                                 )
                                 data_rows = table
                         else:
-                            # No header row, use global_headers
                             data_rows = table
 
                         if not global_headers:
@@ -157,7 +144,6 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                             transactions.append(standardized_row)
                 else:
-                    # Fallback: Extract text if no tables found
                     print(
                         f"No tables found on page {page_num}, attempting text extraction",
                         file=sys.stderr,
@@ -185,5 +171,38 @@ def parse(path: str) -> List[Dict[str, str]]:
         )
 
     except Exception as e:
-        print(f"Error processing the Acess Bank statement: {e}", file=sys.stderr)
+        print(f"Error processing PDF: {e}", file=sys.stderr)
         return []
+
+
+def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
+    standardized_row = {
+        "TXN_DATE": "",
+        "VAL_DATE": "",
+        "REFERENCE": "",
+        "REMARKS": "",
+        "DEBIT": "0.00",
+        "CREDIT": "0.00",
+        "BALANCE": "0.00",
+        "Check": "",
+        "Check 2": "",
+    }
+
+    if len(row) < len(headers):
+        row.extend([""] * (len(headers) - len(row)))
+
+    row_dict = {headers[i]: row[i] if i < len(row) else "" for i in range(len(headers))}
+
+    standardized_row["TXN_DATE"] = normalize_date(
+        row_dict.get("TXN_DATE", row_dict.get("VAL_DATE", ""))
+    )
+    standardized_row["VAL_DATE"] = normalize_date(
+        row_dict.get("VAL_DATE", row_dict.get("TXN_DATE", ""))
+    )
+    standardized_row["REFERENCE"] = row_dict.get("REFERENCE", "")
+    standardized_row["REMARKS"] = row_dict.get("REMARKS", "")
+    standardized_row["DEBIT"] = row_dict.get("DEBIT", "0.00")
+    standardized_row["CREDIT"] = row_dict.get("CREDIT", "0.00")
+    standardized_row["BALANCE"] = row_dict.get("BALANCE", "0.00")
+
+    return standardized_row
