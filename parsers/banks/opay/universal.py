@@ -1,7 +1,16 @@
-import pdfplumber
 import sys
+import re
+import pdfplumber
 from typing import List, Dict
-from parsers.utils import *  # Import shared: to_float, normalize_date, etc.
+
+from parsers.utils import (
+    normalize_column_name,
+    FIELD_MAPPINGS,
+    normalize_date,
+    to_float,
+    parse_text_row,
+    calculate_checks,
+)
 
 
 def parse(path: str) -> List[Dict[str, str]]:
@@ -12,7 +21,7 @@ def parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"Processing page {page_num}", file=sys.stderr)
+                print(f"(opay): Processing page {page_num}", file=sys.stderr)
                 # Table extraction settings
                 table_settings = {
                     "vertical_strategy": "lines",
@@ -70,7 +79,7 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                         if not global_headers:
                             print(
-                                f"No headers found by page {page_num}, skipping table",
+                                f"(opay): No headers found by page {page_num}, skipping table",
                                 file=sys.stderr,
                             )
                             continue
@@ -145,7 +154,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                             transactions.append(standardized_row)
                 else:
                     print(
-                        f"No tables found on page {page_num}, attempting text extraction",
+                        f"(opay): No tables found on page {page_num}, attempting text extraction",
                         file=sys.stderr,
                     )
                     text = page.extract_text()
@@ -171,38 +180,5 @@ def parse(path: str) -> List[Dict[str, str]]:
         )
 
     except Exception as e:
-        print(f"Error processing PDF: {e}", file=sys.stderr)
+        print(f"Error processing Opay statement: {e}", file=sys.stderr)
         return []
-
-
-def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
-    standardized_row = {
-        "TXN_DATE": "",
-        "VAL_DATE": "",
-        "REFERENCE": "",
-        "REMARKS": "",
-        "DEBIT": "0.00",
-        "CREDIT": "0.00",
-        "BALANCE": "0.00",
-        "Check": "",
-        "Check 2": "",
-    }
-
-    if len(row) < len(headers):
-        row.extend([""] * (len(headers) - len(row)))
-
-    row_dict = {headers[i]: row[i] if i < len(row) else "" for i in range(len(headers))}
-
-    standardized_row["TXN_DATE"] = normalize_date(
-        row_dict.get("TXN_DATE", row_dict.get("VAL_DATE", ""))
-    )
-    standardized_row["VAL_DATE"] = normalize_date(
-        row_dict.get("VAL_DATE", row_dict.get("TXN_DATE", ""))
-    )
-    standardized_row["REFERENCE"] = row_dict.get("REFERENCE", "")
-    standardized_row["REMARKS"] = row_dict.get("REMARKS", "")
-    standardized_row["DEBIT"] = row_dict.get("DEBIT", "0.00")
-    standardized_row["CREDIT"] = row_dict.get("CREDIT", "0.00")
-    standardized_row["BALANCE"] = row_dict.get("BALANCE", "0.00")
-
-    return standardized_row

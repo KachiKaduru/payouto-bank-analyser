@@ -2,7 +2,13 @@ import pdfplumber
 import re
 import sys
 from typing import List, Dict
-from utils import *
+from parsers.utils import (
+    normalize_column_name,
+    FIELD_MAPPINGS,
+    normalize_date,
+    to_float,
+    calculate_checks,
+)
 
 # Regex for transaction start in text mode (e.g., "03-Feb-25")
 DATE_PATTERN = re.compile(r"^\d{2}-[A-Za-z]{3}-\d{2,4}")
@@ -28,7 +34,6 @@ def parse(path: str) -> List[Dict[str, str]]:
                     "min_words_vertical": 2,  # Require words for columns
                     "min_words_horizontal": 1,  # Allow short rows
                     "text_tolerance": 1,  # Precise text alignment
-                    # "keep_blank_chars": False,  # Ignore blanks
                 }
                 tables = page.extract_tables(table_settings)
 
@@ -181,7 +186,7 @@ def parse(path: str) -> List[Dict[str, str]]:
         )
 
     except Exception as e:
-        print(f"Error processing Fidelity PDF: {e}", file=sys.stderr)
+        print(f"Error processing Fidelity Bank Statement: {e}", file=sys.stderr)
         return []
 
 

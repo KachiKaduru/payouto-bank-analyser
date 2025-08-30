@@ -9,8 +9,6 @@ from PyPDF2 import PdfReader, PdfWriter
 from validator import is_valid_parse
 from main_parser import main_parse
 
-# from banks.access.detector import detect_variant
-
 
 def dispatch_parse(
     pdf_path: str, bank: str = None, password: str = None
@@ -38,6 +36,7 @@ def dispatch_parse(
                 writer.write(temp_file)
                 temp_file_path = temp_file.name
                 effective_path = temp_file_path
+
         else:
             print("PDF is not encrypted.")
 
@@ -48,7 +47,7 @@ def dispatch_parse(
             detector = detector_module.detect_variant
         except (ImportError, AttributeError):
             print(
-                f"No specific parsers for bank '{bank}' (dispatch.py)",
+                f"No specific parsers for bank, '{bank}' (dispatch.py)",
                 file=sys.stderr,
             )
             result = main_parse(effective_path)
@@ -79,7 +78,7 @@ def dispatch_parse(
             return result
 
         raise ValueError(
-            "No suitable parser found for this statement. Please check the PDF or add a new variant."
+            "No suitable parser found for this statement. Please check the PDF or add a new variant. (dispatch.py)"
         )
 
     finally:

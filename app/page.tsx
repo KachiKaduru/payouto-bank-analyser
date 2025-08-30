@@ -128,7 +128,7 @@ export default function Home() {
         </button>
 
         {showPasswordInput && (
-          <div className="flex gap-4 items-center mb-4">
+          <div className="flex gap-4 items-center">
             <input
               type="text"
               value={password}
