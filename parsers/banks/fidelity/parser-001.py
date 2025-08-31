@@ -2,7 +2,7 @@ import pdfplumber
 import re
 import sys
 from typing import List, Dict
-from parsers.utils import normalize_date, to_float, calculate_checks, FIELD_MAPPINGS
+from utils import normalize_date, to_float, calculate_checks, FIELD_MAPPINGS
 
 # Regex to detect transaction start lines by date formats like: 03-Feb-25 or 03-Feb-2025
 DATE_PATTERN = re.compile(r"^\d{2}-[A-Za-z]{3}-\d{2,4}$")

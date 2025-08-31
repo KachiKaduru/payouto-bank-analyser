@@ -185,5 +185,5 @@ def parse(path: str) -> List[Dict[str, str]]:
         )
 
     except Exception as e:
-        print(f"Error processing the Acess Bank statement: {e}", file=sys.stderr)
+        print(f"Error processing the Access Bank statement: {e}", file=sys.stderr)
         return []

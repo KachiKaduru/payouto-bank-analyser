@@ -3,14 +3,14 @@ import re
 import sys
 from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
-
-# Import more as you add variants, e.g.:
-# from .parser_001 import parse as parse_001
+from .parser_001 import parse as parse_001  # Import the new parser
 
 VARIANT_PATTERNS = {
-    # Example: Add real patterns from your PDFs
-    # "001": ["Unique Header for Zenith Type 1", re.compile(r"Zenith Pattern 1")],
-    # Add more for 002, etc.
+    "001": [
+        "Here is your Account Summary",
+        re.compile(r"Account Summary", re.IGNORECASE),
+    ],
+    # Add more variants as needed, e.g., "002" for other formats
 }
 
 

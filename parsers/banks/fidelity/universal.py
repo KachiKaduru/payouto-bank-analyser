@@ -2,11 +2,11 @@ import pdfplumber
 import re
 import sys
 from typing import List, Dict
-from parsers.utils import (
-    normalize_column_name,
+from utils import (
     FIELD_MAPPINGS,
-    normalize_date,
     to_float,
+    normalize_column_name,
+    normalize_date,
     calculate_checks,
 )
 

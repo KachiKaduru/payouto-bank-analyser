@@ -13,6 +13,7 @@ FIELD_MAPPINGS = {
         "txn date",
         "trans",
         "trans date",
+        "transdate",
         "transaction date",
         "date",
         "post date",
@@ -44,6 +45,7 @@ FIELD_MAPPINGS = {
         "reference\nnumber",
         "check no",
         "chq\nno",
+        "chq no",
         "channel",
     ],
     "REMARKS": [

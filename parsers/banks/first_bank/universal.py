@@ -2,7 +2,7 @@ import sys
 import re
 import pdfplumber
 from typing import List, Dict
-from parsers.utils import (
+from utils import (
     normalize_column_name,
     FIELD_MAPPINGS,
     normalize_date,
