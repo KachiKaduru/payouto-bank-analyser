@@ -1,6 +1,6 @@
-import sys
-import re
 import pdfplumber
+import re
+import sys
 from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
 

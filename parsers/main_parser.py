@@ -151,7 +151,7 @@ def main_parse(path: str) -> List[Dict[str, str]]:
                 else:
                     # Fallback: Extract text if no tables found
                     print(
-                        f"No tables found on page {page_num}, attempting text extraction",
+                        f"No tables found on page {page_num}, attempting text extraction ",
                         file=sys.stderr,
                     )
                     text = page.extract_text()

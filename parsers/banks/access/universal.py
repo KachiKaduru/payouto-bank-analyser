@@ -20,7 +20,7 @@ def parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"(access): Processing page {page_num}", file=sys.stderr)
+                print(f"(access parser): Processing page {page_num}", file=sys.stderr)
                 # Table extraction settings
                 table_settings = {
                     "vertical_strategy": "lines",
@@ -185,5 +185,5 @@ def parse(path: str) -> List[Dict[str, str]]:
         )
 
     except Exception as e:
-        print(f"Error processing the Acess Bank PDF: {e}", file=sys.stderr)
+        print(f"Error processing the Access Bank statement: {e}", file=sys.stderr)
         return []

@@ -1,7 +1,7 @@
 import pdfplumber
 import sys
 from typing import List, Dict
-from parsers.utils import *  # Import shared: to_float, normalize_date, etc.
+from utils import *  # Import shared: to_float, normalize_date, etc.
 
 
 def parse(path: str) -> List[Dict[str, str]]:

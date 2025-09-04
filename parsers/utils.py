@@ -4,7 +4,6 @@ from typing import List, Dict
 from datetime import datetime
 from PyPDF2 import PdfReader, PdfWriter
 import tempfile
-import pikepdf
 
 TOLERANCE = 0.01
 
@@ -14,6 +13,7 @@ FIELD_MAPPINGS = {
         "txn date",
         "trans",
         "trans date",
+        "transdate",
         "transaction date",
         "date",
         "post date",
@@ -44,7 +44,8 @@ FIELD_MAPPINGS = {
         "reference number",
         "reference\nnumber",
         "check no",
-        'chq\nno',
+        "chq\nno",
+        "chq no",
         "channel",
     ],
     "REMARKS": [
@@ -137,32 +138,39 @@ def normalize_date(date_str: str) -> str:
     if not date_str:
         return ""
 
-    # Clean up multiple spaces and fix dash+space issue
-    cleaned = re.sub(r"\s+", " ", date_str.strip())        # collapse spaces
-    cleaned = re.sub(r"-\s+", "-", cleaned)                # remove space after dash
+    # Clean up spaces and dash issues
+    cleaned = re.sub(r"\s+", " ", date_str.strip())  # collapse multiple spaces
+    cleaned = re.sub(r"-\s+", "-", cleaned)  # remove space after dash
+    cleaned = re.sub(r":\s+", ":", cleaned)  # remove space after colon in time
 
-    for fmt in [
+    # Supported date formats (added ISO 8601 with time)
+    date_formats = [
         "%d-%b-%Y",
         "%d-%b-%y",
         "%d/%m/%Y",
         "%d/%m/%y",
         "%d-%m-%Y",
         "%d-%m-%y",
-        "%Y-%m-%d",
+        "%Y-%m-%d",  # e.g. 2025-06-01
+        "%Y-%m-%dT%H:%M:%S",  # e.g. 2025-06-01T22:10:21 ✅
         "%d %b %Y",
         "%d.%m.%Y",
         "%d.%m.%y",
         "%d %B %Y",
         "%d-%B-%Y",
-    ]:
+    ]
+
+    for fmt in date_formats:
         try:
             dt = datetime.strptime(cleaned, fmt)
-            return dt.strftime("%d-%b-%Y")  # Abbreviated month
+            return dt.strftime("%d-%b-%Y")  # Normalize to DD-MMM-YYYY
         except ValueError:
             continue
 
+    # If nothing matches, log and return original
     print(f"Warning: Could not parse date '{date_str}'", file=sys.stderr)
     return date_str
+
 
 def normalize_column_name(col: str) -> str:
     if not col:
@@ -222,47 +230,24 @@ def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
     return standardized_row
 
 
-def decrypt_pdf(input_path: str, password: str = '') -> str:
-    """
-    Decrypt a password-protected PDF.
-    1. Try PyPDF2 first (fast, works for simple encryption).
-    2. If PyPDF2 fails, fallback to pikepdf (handles stronger encryption).
-
-    Returns the path to the decrypted PDF (temp file) if successful,
-    or the original path if unencrypted. Returns None on failure.
-    """
-    # ---- Try PyPDF2 ----
-    try:
-        reader = PdfReader(input_path)
-        if reader.is_encrypted:
-            if not password:
-                raise ValueError("Encrypted PDF detected. Please provide a password.")
-            result = reader.decrypt(password)
-            if result:  # Success (1 or True)
-                with tempfile.NamedTemporaryFile(
-                    delete=False, suffix=".pdf"
-                ) as temp_file:
-                    writer = PdfWriter()
-                    for page in reader.pages:
-                        writer.add_page(page)
-                    writer.write(temp_file)
-                print("✅ Decrypted successfully with PyPDF2")
-                return temp_file.name
-            else:
-                print("⚠️ PyPDF2 failed, trying pikepdf...")
-        else:
-            print("ℹ️ PDF is not encrypted")
-            return input_path
-    except Exception as e:
-        print(f"⚠️ PyPDF2 error: {e} → trying pikepdf...")
-
-    # ---- Fallback: pikepdf ----
-    try:
+def decrypt_pdf(
+    input_path: str,
+    password: str = "",
+    effective_path: str = None,
+    temp_file_path: str = None,
+) -> str:
+    reader = PdfReader(input_path)
+    if reader.is_encrypted:
+        if not password:
+            raise ValueError("Encrypted PDF detected. Please provide a password.")
+        reader.decrypt(password)
+        print("PDF decrypted successfully.")
+        # Create a temporary file for the decrypted PDF
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-            with pikepdf.open(input_path, password=password) as pdf:
-                pdf.save(temp_file.name)
-        print("✅ Decrypted successfully with pikepdf")
-        return temp_file.name
-    except Exception as e:
-        print(f"❌ Both PyPDF2 and pikepdf failed: {e}")
-        return ''
+            writer = PdfWriter()
+            for page in reader.pages:
+                writer.add_page(page)
+            writer.write(temp_file)
+            temp_file_path = temp_file.name
+            effective_path = temp_file_path
+        return temp_file_path, effective_path

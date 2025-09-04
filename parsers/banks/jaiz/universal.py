@@ -21,7 +21,7 @@ def parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"(union): Processing page {page_num}", file=sys.stderr)
+                print(f"(jaiz): Processing page {page_num}", file=sys.stderr)
                 # Table extraction settings
                 table_settings = {
                     "vertical_strategy": "lines",
@@ -79,7 +79,7 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                         if not global_headers:
                             print(
-                                f"(union): No headers found by page {page_num}, skipping table",
+                                f"(jaiz): No headers found by page {page_num}, skipping table",
                                 file=sys.stderr,
                             )
                             continue
@@ -154,7 +154,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                             transactions.append(standardized_row)
                 else:
                     print(
-                        f"(union): No tables found on page {page_num}, attempting text extraction",
+                        f"(jaiz): No tables found on page {page_num}, attempting text extraction",
                         file=sys.stderr,
                     )
                     text = page.extract_text()
@@ -180,5 +180,5 @@ def parse(path: str) -> List[Dict[str, str]]:
         )
 
     except Exception as e:
-        print(f"Error processing Union Bank statement: {e}", file=sys.stderr)
+        print(f"Error processing Jaiz Bank statement: {e}", file=sys.stderr)
         return []
