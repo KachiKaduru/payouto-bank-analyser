@@ -123,11 +123,12 @@ STANDARDIZED_ROW = {
 
 # FUNCTIONS
 def to_float(value: str) -> float:
-    if not value or value.strip() == "":
+    value = value.strip() if value else ""
+    if not value or value == "-" or value == "":
         return 0.0
     try:
         # Remove currency symbols, commas, and handle negative numbers
-        cleaned = re.sub(r"[^\d.-]", "", value.strip())
+        cleaned = re.sub(r"[^\d.-]", "", value)
         return float(cleaned)
     except ValueError:
         print(f"Warning: Could not parse number '{value}'", file=sys.stderr)
