@@ -12,13 +12,10 @@ export function parseOutput(output: string): ParsedRow[] {
       return [];
     }
 
-    // Extract only the JSON part
     const jsonPart = output.slice(startIndex, endIndex);
 
-    // Parse into valid JS objects
     const parsedData = JSON.parse(jsonPart);
 
-    // Wrap it into an object with "Data" property for consistency
     return parsedData;
   } catch (err) {
     console.error("Failed to parse output:", err, "Output:", output);
