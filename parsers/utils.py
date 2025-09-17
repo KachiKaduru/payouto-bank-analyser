@@ -66,6 +66,8 @@ FIELD_MAPPINGS = {
         "withdrawal(DR)",
         "debits",
         "money out",
+        "debit(₦)",
+        "debit(\u20a6)",
         "debit (NGN)",
         "DEBIT",
         "debit amount",
@@ -79,7 +81,7 @@ FIELD_MAPPINGS = {
         "credits",
         "money in",
         "credit(₦)",
-        "credit (NGN)",
+        "credit(\u20a6)" "credit (NGN)",
         "CREDIT",
         "credit amount",
         "pay in",
@@ -209,7 +211,8 @@ def calculate_checks(transactions: List[Dict[str, str]]) -> List[Dict[str, str]]
 
 
 def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
-    standardized_row = STANDARDIZED_ROW
+    # standardized_row = STANDARDIZED_ROW
+    standardized_row = STANDARDIZED_ROW.copy()
 
     if len(row) < len(headers):
         row.extend([""] * (len(headers) - len(row)))
@@ -232,12 +235,12 @@ def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
 
 
 def decrypt_pdf(
-    input_path: str,
+    pdf_path: str,
     password: str = "",
     effective_path: str = None,
     temp_file_path: str = None,
 ) -> str:
-    reader = PdfReader(input_path)
+    reader = PdfReader(pdf_path)
     if reader.is_encrypted:
         if not password:
             raise ValueError("Encrypted PDF detected. Please provide a password.")

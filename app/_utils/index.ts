@@ -24,7 +24,7 @@ export function parseOutput(output: string): ParsedRow[] {
 }
 
 // JUST IN CASE THE FIRST ONE EVER FAILS, WE CAN TRY THIS ONE OUT AND SEE
-// export function parseOutput(output: string): ParsedRow[] {
+// export function parseOutput2(output: string): ParsedRow[] {
 //   try {
 //     // Clean the output by removing lines before the first [
 //     const lines = output.split("\n");
