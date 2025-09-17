@@ -2,7 +2,7 @@
 import sys
 import re
 import pdfplumber
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 from utils import normalize_date, to_float, calculate_checks, STANDARDIZED_ROW
 
@@ -123,7 +123,9 @@ def parse(path: str) -> List[Dict[str, str]]:
 
 
 # ----------------- Helper internals -----------------
-def _extract_trailing_year_and_clean(lines: List[str]) -> (Optional[str], List[str]):
+def _extract_trailing_year_and_clean(
+    lines: List[str],
+) -> Tuple[Optional[str], List[str]]:
     """
     Look at the last 2 lines for a standalone year token (e.g. "2025" or "2025 OYENEYE -").
     If found, remove that year token from the lines and return it.
