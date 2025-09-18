@@ -5,12 +5,18 @@ from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
 from .parser_001 import parse as parse_001  # Import the new parser
 
+# Map variant keys directly to their parser functions
+PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
+    "001": parse_001,
+    # Add future variants here, e.g. "002": parse_002
+}
+
 VARIANT_PATTERNS = {
     "001": [
         "Here is your Account Summary",
         re.compile(r"Account Summary", re.IGNORECASE),
     ],
-    # Add more variants as needed, e.g., "002" for other formats
+    # Add more patterns for other variants if needed
 }
 
 
@@ -19,7 +25,9 @@ def detect_variant(path: str) -> Optional[Callable[[str], List[Dict[str, str]]]]
         with pdfplumber.open(path) as pdf:
             if not pdf.pages:
                 return None
-            text = pdf.pages[0].extract_text() or ""  # Check first page
+
+            # Look at the first page text only
+            text = pdf.pages[0].extract_text() or ""
             text_lower = text.lower()
 
             for variant, patterns in VARIANT_PATTERNS.items():
@@ -29,8 +37,11 @@ def detect_variant(path: str) -> Optional[Callable[[str], List[Dict[str, str]]]]
                     for p in patterns
                 ):
                     print(f"Detected variant: {variant}", file=sys.stderr)
-                    return globals()[f"parse_{variant}"]  # e.g., parse_001
+                    return PARSER_MAP.get(variant, parse_universal)
 
-        return parse_universal  # Default to universal if no match
-    except Exception:
+        # Default to universal if nothing matched
+        return parse_universal
+
+    except Exception as e:
+        print(f"(uba detector): Error during detection: {e}", file=sys.stderr)
         return parse_universal
