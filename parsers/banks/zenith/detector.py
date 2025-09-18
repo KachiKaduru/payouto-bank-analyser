@@ -3,14 +3,19 @@ import re
 import sys
 from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
+from .parser_001 import parse as parse_001  # Import the new parser
 
-# Import more as you add variants, e.g.:
-# from .parser_001 import parse as parse_001
-
+# Define patterns for different variants
 VARIANT_PATTERNS = {
-    # Example: Add real patterns from your PDFs
-    # "001": ["Unique Header for Zenith Type 1", re.compile(r"Zenith Pattern 1")],
-    # Add more for 002, etc.
+    "001": [
+        "DATE POSTED",
+        "VALUE DATE",
+        "DESCRIPTION",
+        "DEBIT",
+        "CREDIT",
+        "BALANCE",
+    ],
+    # Add more for other Zenith variants later
 }
 
 
@@ -19,18 +24,18 @@ def detect_variant(path: str) -> Optional[Callable[[str], List[Dict[str, str]]]]
         with pdfplumber.open(path) as pdf:
             if not pdf.pages:
                 return None
-            text = pdf.pages[0].extract_text() or ""  # Check first page
+
+            # Check only the first page text for patterns
+            text = pdf.pages[0].extract_text() or ""
             text_lower = text.lower()
 
             for variant, patterns in VARIANT_PATTERNS.items():
-                if all(
-                    (isinstance(p, str) and p.lower() in text_lower)
-                    or (isinstance(p, re.Pattern) and p.search(text_lower))
-                    for p in patterns
-                ):
+                if all(p.lower() in text_lower for p in patterns if isinstance(p, str)):
                     print(f"Detected variant: {variant}", file=sys.stderr)
-                    return globals()[f"parse_{variant}"]  # e.g., parse_001
+                    return globals()[f"parse_{variant}"]  # Calls parse_001, etc.
 
-        return parse_universal  # Default to universal if no match
-    except Exception:
+        # Default to universal if no match
+        return parse_universal
+    except Exception as e:
+        print(f"Detector error: {e}", file=sys.stderr)
         return parse_universal
