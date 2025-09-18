@@ -14,6 +14,8 @@ export default function Home() {
   const [password, setPassword] = useState<string>("");
   const [showPasswordInput, setShowPasswordInput] = useState(false);
 
+  const noOfErrorRows = data.filter((row) => row.Check === "FALSE");
+
   const handleUpload = async () => {
     if (!file) {
       setError("No file uploaded");
@@ -94,7 +96,7 @@ export default function Home() {
     <div className="min-h-screen p-6 bg-gray-50">
       <h1 className="text-2xl font-bold mb-6">Bank Statement Parser</h1>
 
-      <div className="flex gap-4 items-center mb-4">
+      <div className="flex gap-4 items-center mb-4 flex-wrap">
         {/* Bank Dropdown */}
         <select
           value={bank}
@@ -157,6 +159,12 @@ export default function Home() {
       </div>
 
       {error && <div className="text-red-500 font-medium mb-4">{error}</div>}
+
+      {data.length > 0 && (
+        <p className="my-5">
+          Number of Error Lines: <strong>{noOfErrorRows.length}</strong>
+        </p>
+      )}
 
       {data.length > 0 && (
         <div className="overflow-auto border rounded-lg">

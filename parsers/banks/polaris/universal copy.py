@@ -13,84 +13,6 @@ from utils import (
 )
 
 
-def clean_transaction(row: Dict[str, str]) -> Dict[str, str]:
-    """
-    Fix misaligned UBA rows where narration fragments spill into DEBIT, CREDIT, or REFERENCE.
-    Rules:
-    - Keep only valid monetary values (must contain decimals).
-    - If DEBIT or CREDIT contains a plain integer and the other side has a valid decimal,
-      treat the integer as junk and move it to REMARKS.
-    - Ensure empty DEBIT/CREDIT are formatted as "0.00".
-    """
-    remarks_extra = []
-
-    # --- Clean REFERENCE ---
-    ref = row.get("REFERENCE", "")
-    if ref and not re.match(r"^\d+$", ref.strip()):  # not purely numeric
-        remarks_extra.append(ref)
-        row["REFERENCE"] = ""
-
-    # Helper to check if a string looks like a money value with decimals
-    def is_decimal_number(value: str) -> bool:
-        return bool(re.match(r"^\d[\d,]*\.\d{2}$", value.strip()))
-
-    # --- Clean DEBIT ---
-    debit = row.get("DEBIT", "").strip()
-    credit = row.get("CREDIT", "").strip()
-
-    if debit:
-        if is_decimal_number(debit):
-            row["DEBIT"] = debit
-        else:
-            # if it's a plain integer and credit has a valid decimal → junk
-            if re.match(r"^\d+$", debit) and is_decimal_number(credit):
-                remarks_extra.append(debit)
-                row["DEBIT"] = "0.00"
-            else:
-                # fallback: try to extract last valid decimal
-                numbers = re.findall(r"\d[\d,]*\.?\d*", debit)
-                if numbers and is_decimal_number(numbers[-1]):
-                    row["DEBIT"] = numbers[-1]
-                    junk = debit.replace(numbers[-1], "").strip()
-                    if junk:
-                        remarks_extra.append(junk)
-                else:
-                    remarks_extra.append(debit)
-                    row["DEBIT"] = "0.00"
-    else:
-        row["DEBIT"] = "0.00"
-
-    # --- Clean CREDIT ---
-    if credit:
-        if is_decimal_number(credit):
-            row["CREDIT"] = credit
-        else:
-            # if it's a plain integer and debit has a valid decimal → junk
-            if re.match(r"^\d+$", credit) and is_decimal_number(debit):
-                remarks_extra.append(credit)
-                row["CREDIT"] = "0.00"
-            else:
-                numbers = re.findall(r"\d[\d,]*\.?\d*", credit)
-                if numbers and is_decimal_number(numbers[-1]):
-                    row["CREDIT"] = numbers[-1]
-                    junk = credit.replace(numbers[-1], "").strip()
-                    if junk:
-                        remarks_extra.append(junk)
-                else:
-                    remarks_extra.append(credit)
-                    row["CREDIT"] = "0.00"
-    else:
-        row["CREDIT"] = "0.00"
-
-    # Merge any extras back into remarks
-    if remarks_extra:
-        row["REMARKS"] = (
-            row.get("REMARKS", "") + " " + " ".join(remarks_extra)
-        ).strip()
-
-    return row
-
-
 def parse(path: str) -> List[Dict[str, str]]:
     transactions = []
     global_headers = None
@@ -99,7 +21,7 @@ def parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"(uba): Processing page {page_num}", file=sys.stderr)
+                print(f"(polaris): Processing page {page_num}", file=sys.stderr)
                 # Table extraction settings
                 table_settings = {
                     "vertical_strategy": "lines",
@@ -157,7 +79,7 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                         if not global_headers:
                             print(
-                                f"(uba): No headers found by page {page_num}, skipping table",
+                                f"(polaris): No headers found by page {page_num}, skipping table",
                                 file=sys.stderr,
                             )
                             continue
@@ -175,9 +97,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                                 row.extend([""] * (len(global_headers) - len(row)))
 
                             row_dict = {
-                                global_headers[i]: (
-                                    row[i] if i < len(global_headers) else ""
-                                )
+                                global_headers[i]: row[i] if i < len(row) else ""
                                 for i in range(len(global_headers))
                             }
 
@@ -231,13 +151,10 @@ def parse(path: str) -> List[Dict[str, str]]:
                                     else prev_balance
                                 )
 
-                            # 🔑 Clean misaligned rows
-                            standardized_row = clean_transaction(standardized_row)
-
                             transactions.append(standardized_row)
                 else:
                     print(
-                        f"(uba): No tables found on page {page_num}, attempting text extraction",
+                        f"(polaris): No tables found on page {page_num}, attempting text extraction",
                         file=sys.stderr,
                     )
                     text = page.extract_text()
@@ -263,5 +180,5 @@ def parse(path: str) -> List[Dict[str, str]]:
         )
 
     except Exception as e:
-        print(f"Error processing UBA statement: {e}", file=sys.stderr)
+        print(f"Error processing Polaris Bank statement: {e}", file=sys.stderr)
         return []

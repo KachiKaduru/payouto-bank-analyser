@@ -1,3 +1,4 @@
+# banks/jaiz/universal.py
 import sys
 import re
 import pdfplumber
@@ -8,21 +9,66 @@ from utils import (
     FIELD_MAPPINGS,
     normalize_date,
     to_float,
-    parse_text_row,
     calculate_checks,
 )
 
 
+def extract_balances(page) -> Dict[str, float]:
+    """
+    Extract start and end balances from the page text.
+    Jaiz statements label them differently:
+      - 'OPENING BAL.:' in the PDF = true start of period (earliest balance).
+      - 'CLOSING BAL.:' in the PDF = true end of period (latest balance).
+    """
+    balances = {"start_balance": None, "end_balance": None}
+    try:
+        text = page.extract_text() or ""
+
+        # True start of period (oldest balance)
+        match_start = re.search(r"OPENING BAL\.*[: ]+([₦\d,.\-]+)", text, re.IGNORECASE)
+        if match_start:
+            balances["start_balance"] = to_float(match_start.group(1))
+            print(
+                f"(jaiz): Found 'OPENING BAL.:' = {balances['start_balance']} (treated as start_balance)",
+                file=sys.stderr,
+            )
+
+        # True end of period (latest balance)
+        match_end = re.search(r"CLOSING BAL\.*[: ]+([₦\d,.\-]+)", text, re.IGNORECASE)
+        if match_end:
+            balances["end_balance"] = to_float(match_end.group(1))
+            print(
+                f"(jaiz): Found 'CLOSING BAL.:' = {balances['end_balance']} (treated as end_balance)",
+                file=sys.stderr,
+            )
+
+    except Exception as e:
+        print(f"(jaiz): Could not extract balances: {e}", file=sys.stderr)
+
+    return balances
+
+
 def parse(path: str) -> List[Dict[str, str]]:
-    transactions = []
+    raw_rows = []
     global_headers = None
-    global_header_map = None
 
     try:
         with pdfplumber.open(path) as pdf:
+            if not pdf.pages:
+                return []
+
+            # Extract balances from first page
+            balances = extract_balances(pdf.pages[0])
+            start_balance = balances.get("start_balance")
+            end_balance = balances.get("end_balance")
+
+            print(f"(jaiz): Using start_balance = {start_balance}", file=sys.stderr)
+            print(f"(jaiz): Using end_balance   = {end_balance}", file=sys.stderr)
+
+            # Extract all rows (without computing balances yet)
             for page_num, page in enumerate(pdf.pages, 1):
                 print(f"(jaiz): Processing page {page_num}", file=sys.stderr)
-                # Table extraction settings
+
                 table_settings = {
                     "vertical_strategy": "lines",
                     "horizontal_strategy": "lines",
@@ -36,148 +82,93 @@ def parse(path: str) -> List[Dict[str, str]]:
                 }
                 tables = page.extract_tables(table_settings)
 
-                if tables:
-                    for table in tables:
-                        if not table or len(table) < 1:
-                            continue
+                if not tables:
+                    print(
+                        f"(jaiz): No tables found on page {page_num}", file=sys.stderr
+                    )
+                    continue
 
-                        first_row = table[0]
-                        normalized_first_row = [
-                            normalize_column_name(h) if h else "" for h in first_row
-                        ]
-                        is_header_row = any(
-                            h in FIELD_MAPPINGS for h in normalized_first_row if h
+                for table in tables:
+                    if not table or len(table) < 2:
+                        continue
+
+                    first_row = table[0]
+                    normalized_first_row = [
+                        normalize_column_name(h) if h else "" for h in first_row
+                    ]
+                    is_header_row = any(
+                        h in FIELD_MAPPINGS for h in normalized_first_row if h
+                    )
+
+                    if is_header_row and not global_headers:
+                        global_headers = normalized_first_row
+                        print(
+                            f"(jaiz): Stored headers: {global_headers}", file=sys.stderr
                         )
-
-                        if is_header_row and not global_headers:
-                            global_headers = normalized_first_row
-                            global_header_map = {
-                                i: h
-                                for i, h in enumerate(global_headers)
-                                if h in FIELD_MAPPINGS
-                            }
-                            print(
-                                f"Stored global headers: {global_headers}",
-                                file=sys.stderr,
-                            )
+                        data_rows = table[1:]
+                    elif is_header_row and global_headers:
+                        if normalized_first_row == global_headers:
                             data_rows = table[1:]
-                        elif is_header_row and global_headers:
-                            if normalized_first_row == global_headers:
-                                print(
-                                    f"Skipping repeated header row on page {page_num}",
-                                    file=sys.stderr,
-                                )
-                                data_rows = table[1:]
-                            else:
-                                print(
-                                    f"Different headers on page {page_num}, treating as data",
-                                    file=sys.stderr,
-                                )
-                                data_rows = table
                         else:
                             data_rows = table
+                    else:
+                        data_rows = table
 
-                        if not global_headers:
-                            print(
-                                f"(jaiz): No headers found by page {page_num}, skipping table",
-                                file=sys.stderr,
-                            )
-                            continue
+                    if not global_headers:
+                        continue
 
-                        has_amount = "AMOUNT" in global_headers
-                        balance_idx = (
-                            global_headers.index("BALANCE")
-                            if "BALANCE" in global_headers
-                            else -1
-                        )
-                        prev_balance = None
+                    # Collect raw rows
+                    for row in data_rows:
+                        if len(row) < len(global_headers):
+                            row.extend([""] * (len(global_headers) - len(row)))
 
-                        for row in data_rows:
-                            if len(row) < len(global_headers):
-                                row.extend([""] * (len(global_headers) - len(row)))
+                        row_dict = {
+                            global_headers[i]: row[i] if i < len(global_headers) else ""
+                            for i in range(len(global_headers))
+                        }
 
-                            row_dict = {
-                                global_headers[i]: row[i] if i < len(row) else ""
-                                for i in range(len(global_headers))
-                            }
+                        raw_rows.append(row_dict)
 
-                            standardized_row = {
-                                "TXN_DATE": normalize_date(
-                                    row_dict.get(
-                                        "TXN_DATE", row_dict.get("VAL_DATE", "")
-                                    )
-                                ),
-                                "VAL_DATE": normalize_date(
-                                    row_dict.get(
-                                        "VAL_DATE", row_dict.get("TXN_DATE", "")
-                                    )
-                                ),
-                                "REFERENCE": row_dict.get("REFERENCE", ""),
-                                "REMARKS": row_dict.get("REMARKS", ""),
-                                "DEBIT": "",
-                                "CREDIT": "",
-                                "BALANCE": row_dict.get("BALANCE", ""),
-                                "Check": "",
-                                "Check 2": "",
-                            }
+            # Reverse rows to chronological order (oldest → newest)
+            raw_rows.reverse()
 
-                            if has_amount and balance_idx != -1:
-                                amount = to_float(row_dict.get("AMOUNT", ""))
-                                current_balance = to_float(row_dict.get("BALANCE", ""))
+            # Apply running balance
+            transactions = []
+            current_balance = start_balance if start_balance is not None else 0.0
 
-                                if prev_balance is not None:
-                                    if current_balance < prev_balance:
-                                        standardized_row["DEBIT"] = f"{abs(amount):.2f}"
-                                        standardized_row["CREDIT"] = "0.00"
-                                    else:
-                                        standardized_row["DEBIT"] = "0.00"
-                                        standardized_row["CREDIT"] = (
-                                            f"{abs(amount):.2f}"
-                                        )
-                                else:
-                                    standardized_row["DEBIT"] = "0.00"
-                                    standardized_row["CREDIT"] = "0.00"
-                                prev_balance = current_balance
-                            else:
-                                standardized_row["DEBIT"] = row_dict.get(
-                                    "DEBIT", "0.00"
-                                )
-                                standardized_row["CREDIT"] = row_dict.get(
-                                    "CREDIT", "0.00"
-                                )
-                                prev_balance = (
-                                    to_float(standardized_row["BALANCE"])
-                                    if standardized_row["BALANCE"]
-                                    else prev_balance
-                                )
+            for row_dict in raw_rows:
+                debit = to_float(row_dict.get("DEBIT", "0.00"))
+                credit = to_float(row_dict.get("CREDIT", "0.00"))
 
-                            transactions.append(standardized_row)
-                else:
-                    print(
-                        f"(jaiz): No tables found on page {page_num}, attempting text extraction",
-                        file=sys.stderr,
-                    )
-                    text = page.extract_text()
-                    if text and global_headers:
-                        lines = text.split("\n")
-                        current_row = []
-                        for line in lines:
-                            if re.match(r"^\d{2}[-/.]\d{2}[-/.]\d{4}", line):
-                                if current_row:
-                                    transactions.append(
-                                        parse_text_row(current_row, global_headers)
-                                    )
-                                current_row = [line]
-                            else:
-                                current_row.append(line)
-                        if current_row:
-                            transactions.append(
-                                parse_text_row(current_row, global_headers)
-                            )
+                # Forward calculation
+                current_balance = round(current_balance - debit + credit, 2)
 
-        return calculate_checks(
-            [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
-        )
+                standardized_row = {
+                    "TXN_DATE": normalize_date(
+                        row_dict.get("TXN_DATE", row_dict.get("VAL_DATE", ""))
+                    ),
+                    "VAL_DATE": normalize_date(
+                        row_dict.get("VAL_DATE", row_dict.get("TXN_DATE", ""))
+                    ),
+                    "REFERENCE": row_dict.get("REFERENCE", ""),
+                    "REMARKS": row_dict.get("REMARKS", ""),
+                    "DEBIT": f"{debit:.2f}" if debit else "0.00",
+                    "CREDIT": f"{credit:.2f}" if credit else "0.00",
+                    "BALANCE": f"{current_balance:.2f}",
+                    "Check": "",
+                    "Check 2": "",
+                }
+
+                transactions.append(standardized_row)
+
+            # Cross-check final balance vs expected end_balance
+            if end_balance is not None and abs(current_balance - end_balance) > 0.01:
+                print(
+                    f"(jaiz): ⚠️ Balance mismatch. Expected end_balance {end_balance}, got {current_balance}",
+                    file=sys.stderr,
+                )
+
+            return calculate_checks(transactions)
 
     except Exception as e:
         print(f"Error processing Jaiz Bank statement: {e}", file=sys.stderr)
