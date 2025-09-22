@@ -14,7 +14,7 @@ export default function Home() {
   const [password, setPassword] = useState<string>("");
   const [showPasswordInput, setShowPasswordInput] = useState(false);
 
-  const noOfErrorRows = data.filter((row) => row.Check === "FALSE");
+  const noOfErrorRows = data.filter((row) => row.Check === "FALSE").length;
 
   const handleUpload = async () => {
     if (!file) {
@@ -161,9 +161,25 @@ export default function Home() {
       {error && <div className="text-red-500 font-medium mb-4">{error}</div>}
 
       {data.length > 0 && (
-        <p className="my-5">
-          Number of Error Lines: <strong>{noOfErrorRows.length}</strong>
-        </p>
+        <div className="my-5 space-x-4">
+          <span>
+            Total Number of Rows: <strong className="text-green-600">{data.length}</strong>
+          </span>
+          <span>
+            Number of Failed Rows:{" "}
+            <strong
+              className={`${
+                noOfErrorRows > 0
+                  ? noOfErrorRows < 10
+                    ? "text-amber-500"
+                    : "text-red-600"
+                  : "text-green-600"
+              }`}
+            >
+              {noOfErrorRows}
+            </strong>
+          </span>
+        </div>
       )}
 
       {data.length > 0 && (
