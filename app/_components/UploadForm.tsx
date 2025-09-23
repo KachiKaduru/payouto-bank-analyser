@@ -46,6 +46,7 @@ export default function UploadForm() {
             placeholder="Search bank..."
             className="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
+
           {search && (
             <ul className="absolute left-0 right-0 bg-white border border-gray-200 mt-1 max-h-48 overflow-y-auto rounded-lg shadow-lg z-10">
               {filteredBanks.map((bankOption) => (

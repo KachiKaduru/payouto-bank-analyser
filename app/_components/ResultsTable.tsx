@@ -1,6 +1,7 @@
+import React from "react";
 import { useParserStore } from "../_store/useParserStore";
 
-export default function ResultsTable() {
+function Table() {
   const data = useParserStore((s) => s.data);
 
   if (data.length <= 0) return null;
@@ -38,3 +39,6 @@ export default function ResultsTable() {
     </section>
   );
 }
+const ResultsTable = React.memo(Table);
+
+export default ResultsTable;
