@@ -3,13 +3,10 @@ import re
 import sys
 from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
-
-# Import more as you add variants, e.g.:
-# from .parser_001 import parse as parse_001
+from .parser_001 import parse as parse_001
 
 VARIANT_PATTERNS = {
-    # Add patterns for future variants, e.g.:
-    # "001": ["ACCOUNT STATEMENT", re.compile(r"Access Bank")],
+    "001": ["private & confidential", "withdrawals", "lodgements"],
 }
 
 

@@ -67,6 +67,7 @@ FIELD_MAPPINGS = {
     "DEBIT": [
         "debit",
         "withdrawal",
+        "withdrawals",
         "dr",
         "withdrawal(DR)",
         "debits",
@@ -86,10 +87,12 @@ FIELD_MAPPINGS = {
         "credits",
         "money in",
         "credit(₦)",
-        "credit(\u20a6)" "credit (NGN)",
+        "credit(\u20a6)",
+        "credit (NGN)",
         "CREDIT",
         "credit amount",
         "pay in",
+        # "lodgements",
     ],
     "BALANCE": [
         "balance",
@@ -101,7 +104,13 @@ FIELD_MAPPINGS = {
         "current balance",
         "",
     ],
-    "AMOUNT": ["amount", "txn amount", "transaction amount", "balance(₦)"],
+    "AMOUNT": [
+        "amount",
+        "txn amount",
+        "transaction amount",
+        "balance(₦)",
+        "balance(\u20a6)",
+    ],
 }
 
 MAIN_TABLE_SETTINGS = {
@@ -152,7 +161,7 @@ def normalize_date(date_str: str) -> str:
     cleaned = re.sub(r"-\s+", "-", cleaned)  # remove space after dash
     cleaned = re.sub(r":\s+", ":", cleaned)  # remove space after colon in time
 
-    # Supported date formats (added ISO 8601 with time)
+    # Supported date formats (added US-style month/day/year)
     date_formats = [
         "%d-%b-%Y",
         "%d-%b-%y",
@@ -160,8 +169,10 @@ def normalize_date(date_str: str) -> str:
         "%d/%m/%y",
         "%d-%m-%Y",
         "%d-%m-%y",
-        "%Y-%m-%d",  # e.g. 2025-06-01
-        "%Y-%m-%dT%H:%M:%S",  # e.g. 2025-06-01T22:10:21 ✅
+        "%m/%d/%Y",  # ✅ e.g. 1/30/2025
+        "%m/%d/%y",  # ✅ e.g. 1/30/25
+        "%Y-%m-%d",
+        "%Y-%m-%dT%H:%M:%S",
         "%d %b %Y",
         "%d.%m.%Y",
         "%d.%m.%y",
@@ -172,7 +183,8 @@ def normalize_date(date_str: str) -> str:
     for fmt in date_formats:
         try:
             dt = datetime.strptime(cleaned, fmt)
-            return dt.strftime("%d-%b-%Y")  # Normalize to DD-MMM-YYYY
+            # Return in Excel-friendly ISO format
+            return dt.strftime("%Y-%m-%d")  # ✅ Excel recognizes & sorts
         except ValueError:
             continue
 
