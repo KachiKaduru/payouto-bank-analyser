@@ -34,11 +34,13 @@ FIELD_MAPPINGS = {
         "date",
         "value\ndate",
         "VAL_DATE",
+        "actual\ntransaction\ndate",
     ],
     "REFERENCE": [
         "reference",
         "ref",
         "transaction id",
+        "transaction reference",
         "txn id",
         "ref. number",
         "reference number",
@@ -51,6 +53,9 @@ FIELD_MAPPINGS = {
     "REMARKS": [
         "remarks",
         "description",
+        "descrip�on",
+        "descrip\x00on",
+        "descrip\ufffdon",
         "narration",
         "comment",
         "transaction details",
@@ -93,6 +98,7 @@ FIELD_MAPPINGS = {
         "balance(₦)",
         "balance (NGN)",
         "BALANCE",
+        "current balance",
         "",
     ],
     "AMOUNT": ["amount", "txn amount", "transaction amount", "balance(₦)"],
@@ -225,8 +231,10 @@ def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
     standardized_row["VAL_DATE"] = normalize_date(
         row_dict.get("VAL_DATE", row_dict.get("TXN_DATE", ""))
     )
+
     standardized_row["REFERENCE"] = row_dict.get("REFERENCE", "")
     standardized_row["REMARKS"] = row_dict.get("REMARKS", "")
+
     standardized_row["DEBIT"] = row_dict.get("DEBIT", "0.00")
     standardized_row["CREDIT"] = row_dict.get("CREDIT", "0.00")
     standardized_row["BALANCE"] = row_dict.get("BALANCE", "0.00")

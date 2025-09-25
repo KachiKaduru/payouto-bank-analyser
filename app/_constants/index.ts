@@ -28,6 +28,7 @@ export const FIELD_MAPPINGS = {
 
 export const banksList = [
   { value: "access", label: "Access Bank" },
+  { value: "alternative", label: "The Alternative Bank" },
   { value: "fcmb", label: "FCMB" },
   { value: "fidelity", label: "Fidelity Bank" },
   { value: "first_bank", label: "First Bank" },

@@ -93,33 +93,12 @@ def parse(path: str) -> List[Dict[str, str]]:
                         prev_balance = None
 
                         for row in data_rows:
-                            if len(row) < len(global_headers):
-                                row.extend([""] * (len(global_headers) - len(row)))
-
                             row_dict = {
                                 global_headers[i]: row[i] if i < len(row) else ""
                                 for i in range(len(global_headers))
                             }
 
-                            standardized_row = {
-                                "TXN_DATE": normalize_date(
-                                    row_dict.get(
-                                        "TXN_DATE", row_dict.get("VAL_DATE", "")
-                                    )
-                                ),
-                                "VAL_DATE": normalize_date(
-                                    row_dict.get(
-                                        "VAL_DATE", row_dict.get("TXN_DATE", "")
-                                    )
-                                ),
-                                "REFERENCE": row_dict.get("REFERENCE", ""),
-                                "REMARKS": row_dict.get("REMARKS", ""),
-                                "DEBIT": "",
-                                "CREDIT": "",
-                                "BALANCE": row_dict.get("BALANCE", ""),
-                                "Check": "",
-                                "Check 2": "",
-                            }
+                            standardized_row = parse_text_row(row, global_headers)
 
                             if has_amount and balance_idx != -1:
                                 amount = to_float(row_dict.get("AMOUNT", ""))
