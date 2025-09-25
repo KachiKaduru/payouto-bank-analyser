@@ -40,6 +40,7 @@ FIELD_MAPPINGS = {
         "reference",
         "ref",
         "transaction id",
+        "transaction reference",
         "txn id",
         "ref. number",
         "reference number",

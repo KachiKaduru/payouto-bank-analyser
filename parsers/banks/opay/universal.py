@@ -1,183 +1,133 @@
+# banks/opay/universal.py
 import sys
 import re
-import pdfplumber
 from typing import List, Dict
 
-from utils import (
-    normalize_column_name,
-    FIELD_MAPPINGS,
-    normalize_date,
-    to_float,
-    parse_text_row,
-    calculate_checks,
+import pdfplumber
+
+from utils import STANDARDIZED_ROW, normalize_date, calculate_checks
+
+# A transaction block starts with: "2025 Mar 15 06:22:57 15 Mar 2025 ..."
+START_RE = re.compile(
+    r"^\s*\d{4}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{1,2}\s+\w{3}\s+\d{4}"
+)
+
+# Amount + balance pair, allow +, -, or plain positive numbers
+AMOUNT_BAL_RE = re.compile(r"([+-]?\d[\d,]*\.\d{2})\s+([\d,]+\.\d{2})")
+
+# Channel keywords between balance and reference
+CHANNEL_RE = re.compile(
+    r"\b(E-Channel|POS|OPay|Palmpay|MONIE POINT|ATM|WebTB)\b",
+    flags=re.IGNORECASE,
 )
 
 
 def parse(path: str) -> List[Dict[str, str]]:
-    transactions = []
-    global_headers = None
-    global_header_map = None
+    """
+    Parse an Opay PDF statement where each transaction may span multiple lines.
+    Returns a list of standardized rows (STANDARDIZED_ROW shape) and runs calculate_checks().
+    """
+    transactions: List[Dict[str, str]] = []
 
     try:
         with pdfplumber.open(path) as pdf:
-            for page_num, page in enumerate(pdf.pages, 1):
+            for page_num, page in enumerate(pdf.pages, start=1):
                 print(f"(opay): Processing page {page_num}", file=sys.stderr)
-                # Table extraction settings
-                table_settings = {
-                    "vertical_strategy": "lines",
-                    "horizontal_strategy": "lines",
-                    "explicit_vertical_lines": [],
-                    "explicit_horizontal_lines": [],
-                    "snap_tolerance": 3,
-                    "join_tolerance": 3,
-                    "min_words_vertical": 3,
-                    "min_words_horizontal": 1,
-                    "text_tolerance": 1,
-                }
-                tables = page.extract_tables(table_settings)
+                text = page.extract_text(x_tolerance=2, y_tolerance=2)
+                if not text:
+                    continue
 
-                if tables:
-                    for table in tables:
-                        if not table or len(table) < 1:
-                            continue
+                # normalize lines and drop empty lines
+                lines = [ln for ln in text.splitlines() if ln.strip()]
 
-                        first_row = table[0]
-                        normalized_first_row = [
-                            normalize_column_name(h) if h else "" for h in first_row
-                        ]
-                        is_header_row = any(
-                            h in FIELD_MAPPINGS for h in normalized_first_row if h
-                        )
+                # group lines into transaction blocks (new block when START_RE matches)
+                blocks = []
+                current_block = []
+                for ln in lines:
+                    if START_RE.match(ln):
+                        if current_block:
+                            blocks.append("\n".join(current_block))
+                        current_block = [ln]
+                    else:
+                        current_block.append(ln)
+                if current_block:
+                    blocks.append("\n".join(current_block))
 
-                        if is_header_row and not global_headers:
-                            global_headers = normalized_first_row
-                            global_header_map = {
-                                i: h
-                                for i, h in enumerate(global_headers)
-                                if h in FIELD_MAPPINGS
-                            }
-                            print(
-                                f"Stored global headers: {global_headers}",
-                                file=sys.stderr,
-                            )
-                            data_rows = table[1:]
-                        elif is_header_row and global_headers:
-                            if normalized_first_row == global_headers:
-                                print(
-                                    f"Skipping repeated header row on page {page_num}",
-                                    file=sys.stderr,
-                                )
-                                data_rows = table[1:]
-                            else:
-                                print(
-                                    f"Different headers on page {page_num}, treating as data",
-                                    file=sys.stderr,
-                                )
-                                data_rows = table
-                        else:
-                            data_rows = table
+                # parse each block
+                for block in blocks:
+                    s = re.sub(r"\s+", " ", block).strip()
 
-                        if not global_headers:
-                            print(
-                                f"(opay): No headers found by page {page_num}, skipping table",
-                                file=sys.stderr,
-                            )
-                            continue
+                    # Skip non-transaction blocks (cover info, headers)
+                    if not START_RE.match(s):
+                        continue
 
-                        has_amount = "AMOUNT" in global_headers
-                        balance_idx = (
-                            global_headers.index("BALANCE")
-                            if "BALANCE" in global_headers
-                            else -1
-                        )
-                        prev_balance = None
+                    # Find the last amount+balance occurrence
+                    matches = list(AMOUNT_BAL_RE.finditer(s))
+                    if not matches:
+                        continue  # silently skip if no amount+balance
+                    m = matches[-1]
+                    amount_str = m.group(1)
+                    balance_str = m.group(2)
 
-                        for row in data_rows:
-                            if len(row) < len(global_headers):
-                                row.extend([""] * (len(global_headers) - len(row)))
+                    # Split prefix/suffix around amount-balance
+                    prefix = s[: m.start()].strip()
+                    suffix = s[m.end() :].strip()
 
-                            row_dict = {
-                                global_headers[i]: row[i] if i < len(row) else ""
-                                for i in range(len(global_headers))
-                            }
-
-                            standardized_row = {
-                                "TXN_DATE": normalize_date(
-                                    row_dict.get(
-                                        "TXN_DATE", row_dict.get("VAL_DATE", "")
-                                    )
-                                ),
-                                "VAL_DATE": normalize_date(
-                                    row_dict.get(
-                                        "VAL_DATE", row_dict.get("TXN_DATE", "")
-                                    )
-                                ),
-                                "REFERENCE": row_dict.get("REFERENCE", ""),
-                                "REMARKS": row_dict.get("REMARKS", ""),
-                                "DEBIT": "",
-                                "CREDIT": "",
-                                "BALANCE": row_dict.get("BALANCE", ""),
-                                "Check": "",
-                                "Check 2": "",
-                            }
-
-                            if has_amount and balance_idx != -1:
-                                amount = to_float(row_dict.get("AMOUNT", ""))
-                                current_balance = to_float(row_dict.get("BALANCE", ""))
-
-                                if prev_balance is not None:
-                                    if current_balance < prev_balance:
-                                        standardized_row["DEBIT"] = f"{abs(amount):.2f}"
-                                        standardized_row["CREDIT"] = "0.00"
-                                    else:
-                                        standardized_row["DEBIT"] = "0.00"
-                                        standardized_row["CREDIT"] = (
-                                            f"{abs(amount):.2f}"
-                                        )
-                                else:
-                                    standardized_row["DEBIT"] = "0.00"
-                                    standardized_row["CREDIT"] = "0.00"
-                                prev_balance = current_balance
-                            else:
-                                standardized_row["DEBIT"] = row_dict.get(
-                                    "DEBIT", "0.00"
-                                )
-                                standardized_row["CREDIT"] = row_dict.get(
-                                    "CREDIT", "0.00"
-                                )
-                                prev_balance = (
-                                    to_float(standardized_row["BALANCE"])
-                                    if standardized_row["BALANCE"]
-                                    else prev_balance
-                                )
-
-                            transactions.append(standardized_row)
-                else:
-                    print(
-                        f"(opay): No tables found on page {page_num}, attempting text extraction",
-                        file=sys.stderr,
+                    # Extract value date + remarks
+                    header_re = re.compile(
+                        r"^(?P<trans_time>\d{4}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(?P<val_date>\d{1,2}\s+\w{3}\s+\d{4})\s*(?P<rest>.*)$"
                     )
-                    text = page.extract_text()
-                    if text and global_headers:
-                        lines = text.split("\n")
-                        current_row = []
-                        for line in lines:
-                            if re.match(r"^\d{2}[-/.]\d{2}[-/.]\d{4}", line):
-                                if current_row:
-                                    transactions.append(
-                                        parse_text_row(current_row, global_headers)
-                                    )
-                                current_row = [line]
-                            else:
-                                current_row.append(line)
-                        if current_row:
-                            transactions.append(
-                                parse_text_row(current_row, global_headers)
-                            )
+                    hm = header_re.match(prefix)
+                    if hm:
+                        val_date = hm.group("val_date")
+                        remarks = hm.group("rest").strip()
+                    else:
+                        vd = re.search(r"\d{1,2}\s+\w{3}\s+\d{4}", prefix)
+                        val_date = vd.group(0) if vd else ""
+                        remarks = prefix
 
-        return calculate_checks(
-            [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
-        )
+                    # Reference: after channel keyword OR last long number
+                    ref = ""
+                    ch = CHANNEL_RE.search(suffix)
+                    if ch:
+                        tail = suffix[ch.end() :].strip()
+                        tk = re.search(r"([A-Za-z0-9\-]{6,})", tail)
+                        if tk:
+                            ref = tk.group(1)
+                    if not ref:
+                        nums = re.findall(r"\b\d{6,}\b", s)
+                        if nums:
+                            ref = nums[-1]
+
+                    # Clean remarks: remove any trailing channel fragments
+                    remarks = re.sub(
+                        r"\s*(E-Channel|POS|OPay|Palmpay|MONIE POINT|ATM|WebTB)\b.*$",
+                        "",
+                        remarks,
+                        flags=re.IGNORECASE,
+                    ).strip()
+
+                    # Build standardized row
+                    row = STANDARDIZED_ROW.copy()
+                    row["TXN_DATE"] = normalize_date(val_date)
+                    row["VAL_DATE"] = normalize_date(val_date)
+                    row["REFERENCE"] = ref or ""
+                    row["REMARKS"] = remarks
+
+                    amt = amount_str.replace(",", "")
+                    if amt.startswith("-"):
+                        row["DEBIT"] = amt.lstrip("-")
+                        row["CREDIT"] = "0.00"
+                    else:
+                        row["DEBIT"] = "0.00"
+                        row["CREDIT"] = amt.lstrip("+")
+
+                    row["BALANCE"] = balance_str.replace(",", "")
+
+                    transactions.append(row)
+
+        # run balance checks and return
+        return calculate_checks(transactions)
 
     except Exception as e:
         print(f"Error processing Opay statement: {e}", file=sys.stderr)
