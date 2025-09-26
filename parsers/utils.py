@@ -161,6 +161,18 @@ def normalize_date(date_str: str) -> str:
     cleaned = re.sub(r"-\s+", "-", cleaned)  # remove space after dash
     cleaned = re.sub(r":\s+", ":", cleaned)  # remove space after colon in time
 
+    # Handle cases like '2025-03-13\n2025-03-13'
+    if "\n" in date_str or "\r" in date_str:
+        parts = [p.strip() for p in re.split(r"[\r\n]+", date_str) if p.strip()]
+        if len(set(parts)) == 1:  # same date duplicated
+            cleaned = parts[0]
+        elif parts:  # multiple different dates → prefer first (TXN over VAL)
+            cleaned = parts[0]
+
+    # Fix truncated 4-digit year like '024-12-09'
+    if re.match(r"^\d{3}-\d{2}-\d{2}$", cleaned):
+        cleaned = "2" + cleaned
+
     # Supported date formats (added US-style month/day/year)
     date_formats = [
         "%d-%b-%Y",
@@ -247,8 +259,8 @@ def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
     standardized_row["REFERENCE"] = row_dict.get("REFERENCE", "")
     standardized_row["REMARKS"] = row_dict.get("REMARKS", "")
 
-    standardized_row["DEBIT"] = row_dict.get("DEBIT", "0.00")
-    standardized_row["CREDIT"] = row_dict.get("CREDIT", "0.00")
+    standardized_row["DEBIT"] = row_dict.get("DEBIT", "0.00") or "0.00"
+    standardized_row["CREDIT"] = row_dict.get("CREDIT", "0.00") or "0.00"
     standardized_row["BALANCE"] = row_dict.get("BALANCE", "0.00")
 
     return standardized_row
