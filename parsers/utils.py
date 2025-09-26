@@ -23,6 +23,8 @@ FIELD_MAPPINGS = {
         "trans\ndate",
         "transaction\ndate",
         "create date",
+        "actual transaction date",  # ← new
+        "actual\ntransaction\ndate",  # ← new
     ],
     "VAL_DATE": [
         "value",
@@ -34,7 +36,6 @@ FIELD_MAPPINGS = {
         "date",
         "value\ndate",
         "VAL_DATE",
-        "actual\ntransaction\ndate",
     ],
     "REFERENCE": [
         "reference",
@@ -102,6 +103,7 @@ FIELD_MAPPINGS = {
         "balance (NGN)",
         "BALANCE",
         "current balance",
+        "current\nbalance",
         "",
     ],
     "AMOUNT": [
@@ -154,6 +156,10 @@ def to_float(value: str) -> float:
 
 def normalize_date(date_str: str) -> str:
     if not date_str:
+        return ""
+
+    # Skip non-date rows like totals/closing balance
+    if re.match(r"(?i)^(total|closing|opening|balance|subtotal)", date_str.strip()):
         return ""
 
     # Clean up spaces and dash issues
