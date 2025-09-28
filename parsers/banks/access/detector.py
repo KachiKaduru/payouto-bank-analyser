@@ -3,13 +3,24 @@ import re
 import sys
 from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
+from .parser_001 import parse as parse_001
+from .parser_002 import parse as parse_002
 
-# Import more as you add variants, e.g.:
-# from .parser_001 import parse as parse_001
+# Map variant keys directly to their parser functions
+PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
+    "001": parse_001,
+    "002": parse_002,
+}
 
 VARIANT_PATTERNS = {
-    # Add patterns for future variants, e.g.:
-    # "001": ["ACCOUNT STATEMENT", re.compile(r"Access Bank")],
+    "001": ["private & confidential", "withdrawals", "lodgements"],
+    "002": [
+        "Financial Summary",
+        "Debit (NGN)",
+        "Credit (NGN)",
+        "Balance (NGN)",
+    ],
+    # Add more patterns for other variants if needed
 }
 
 
@@ -18,7 +29,9 @@ def detect_variant(path: str) -> Optional[Callable[[str], List[Dict[str, str]]]]
         with pdfplumber.open(path) as pdf:
             if not pdf.pages:
                 return None
-            text = pdf.pages[0].extract_text() or ""  # Check first page
+
+            # Look at the first page text only
+            text = pdf.pages[0].extract_text() or ""
             text_lower = text.lower()
 
             for variant, patterns in VARIANT_PATTERNS.items():
@@ -27,9 +40,15 @@ def detect_variant(path: str) -> Optional[Callable[[str], List[Dict[str, str]]]]
                     or (isinstance(p, re.Pattern) and p.search(text_lower))
                     for p in patterns
                 ):
-                    print(f"Detected Access variant: {variant}", file=sys.stderr)
-                    return globals()[f"parse_{variant}"]
+                    print(
+                        f"(access_detector): Detected variant: {variant}",
+                        file=sys.stderr,
+                    )
+                    return PARSER_MAP.get(variant, parse_universal)
 
-        return parse_universal  # Default to universal if no match or no variants
-    except Exception:
+        # Default to universal if nothing matched
+        return parse_universal
+
+    except Exception as e:
+        print(f"(access detector): Error during detection: {e}", file=sys.stderr)
         return parse_universal

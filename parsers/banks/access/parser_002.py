@@ -1,10 +1,9 @@
 import pdfplumber
-import json
 from typing import List, Dict
 from utils import *
 
 
-def main_parse(path: str) -> List[Dict[str, str]]:
+def parse(path: str) -> List[Dict[str, str]]:
     transactions = []
     global_headers = None
     global_header_map = None
@@ -12,7 +11,7 @@ def main_parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"(main parser): Processing page {page_num}", file=sys.stderr)
+                print(f"(access:002): Processing page {page_num}", file=sys.stderr)
                 # Table extraction settings
                 table_settings = {
                     "vertical_strategy": "lines",
@@ -80,7 +79,7 @@ def main_parse(path: str) -> List[Dict[str, str]]:
 
                         if not global_headers:
                             print(
-                                f"(main parser): No headers found by page {page_num}, skipping table",
+                                f"(access:002): No headers found by page {page_num}, skipping table",
                                 file=sys.stderr,
                             )
                             continue
@@ -123,8 +122,10 @@ def main_parse(path: str) -> List[Dict[str, str]]:
                             }
 
                             if has_amount and balance_idx != -1:
-                                amount = to_float(row_dict.get("AMOUNT", ""))
-                                current_balance = to_float(row_dict.get("BALANCE", ""))
+                                amount = normalize_money(row_dict.get("AMOUNT", ""))
+                                current_balance = normalize_money(
+                                    row_dict.get("BALANCE", "")
+                                )
 
                                 if prev_balance is not None:
                                     if current_balance < prev_balance:
@@ -138,18 +139,21 @@ def main_parse(path: str) -> List[Dict[str, str]]:
                                 else:
                                     standardized_row["DEBIT"] = "0.00"
                                     standardized_row["CREDIT"] = "0.00"
-                                prev_balance = current_balance
+                                prev_balance = normalize_money(current_balance)
                             else:
-                                standardized_row["DEBIT"] = row_dict.get(
-                                    "DEBIT", "0.00"
+                                standardized_row["DEBIT"] = normalize_money(
+                                    row_dict.get("DEBIT", "0.00")
                                 )
-                                standardized_row["CREDIT"] = row_dict.get(
-                                    "CREDIT", "0.00"
+                                standardized_row["CREDIT"] = normalize_money(
+                                    row_dict.get("CREDIT", "0.00")
                                 )
+                                standardized_row["BALANCE"] = (
+                                    f"{to_float(row_dict.get('BALANCE', '0')):.2f}"
+                                )
+
+                                bal_raw = standardized_row["BALANCE"]
                                 prev_balance = (
-                                    to_float(standardized_row["BALANCE"])
-                                    if standardized_row["BALANCE"]
-                                    else prev_balance
+                                    to_float(bal_raw) if bal_raw else prev_balance
                                 )
 
                             transactions.append(standardized_row)
@@ -159,42 +163,11 @@ def main_parse(path: str) -> List[Dict[str, str]]:
                         f"No tables found on page {page_num}, attempting text extraction ",
                         file=sys.stderr,
                     )
-                    text = page.extract_text()
-                    if text and global_headers:
-                        lines = text.split("\n")
-                        current_row = []
-                        for line in lines:
-                            if re.match(r"^\d{2}[-/.]\d{2}[-/.]\d{4}", line):
-                                if current_row:
-                                    transactions.append(
-                                        parse_text_row(current_row, global_headers)
-                                    )
-                                current_row = [line]
-                            else:
-                                current_row.append(line)
-                        if current_row:
-                            transactions.append(
-                                parse_text_row(current_row, global_headers)
-                            )
 
         return calculate_checks(
             [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
         )
 
     except Exception as e:
-        print(f"Error processing PDF: {e}", file=sys.stderr)
+        print(f"Error processing statement: {e}", file=sys.stderr)
         return []
-
-
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python main_parser.py path/to/statement.pdf", file=sys.stderr)
-        sys.exit(1)
-
-    try:
-        file_path = sys.argv[1]
-        result = main_parse(file_path)
-        print(json.dumps(result, indent=2))
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)

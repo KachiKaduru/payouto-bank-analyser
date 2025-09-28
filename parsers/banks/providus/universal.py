@@ -12,6 +12,65 @@ from utils import (
 )
 
 
+def detect_and_fix_debit_credit_swap(transactions, sample_size=50, tolerance=0.01):
+    """
+    Heuristic: for each consecutive row with a parseable BALANCE, compare:
+      expected_delta = credit - debit
+      actual_delta   = current_balance - prev_balance
+    If expected_delta matches actual_delta -> orientation OK
+    If -expected_delta matches actual_delta -> swapped
+    Use majority vote over up to sample_size rows to decide.
+    """
+    vote_ok = 0
+    vote_swap = 0
+    checked = 0
+    prev_balance = None
+
+    for t in transactions:
+        bal = to_float(t.get("BALANCE", ""))
+        debit = to_float(t.get("DEBIT", ""))
+        credit = to_float(t.get("CREDIT", ""))
+
+        if prev_balance is None:
+            prev_balance = bal
+            continue
+
+        if abs(debit) < 1e-9 and abs(credit) < 1e-9:
+            prev_balance = bal
+            continue
+
+        expected_delta = round(credit - debit, 2)
+        actual_delta = round(bal - prev_balance, 2)
+
+        if abs(expected_delta - actual_delta) <= tolerance:
+            vote_ok += 1
+        elif abs((-expected_delta) - actual_delta) <= tolerance:
+            vote_swap += 1
+
+        checked += 1
+        prev_balance = bal
+
+        if checked >= sample_size:
+            break
+
+    print(
+        f"(providus) swap-detect: checked={checked}, ok={vote_ok}, swap={vote_swap}",
+        file=sys.stderr,
+    )
+
+    if checked > 0 and vote_swap > vote_ok and vote_swap >= max(2, checked // 3):
+        print(
+            "(providus) DETECTED DEBIT<->CREDIT SWAP — swapping all rows.",
+            file=sys.stderr,
+        )
+        for t in transactions:
+            t["DEBIT"], t["CREDIT"] = t.get("CREDIT", "0.00"), t.get("DEBIT", "0.00")
+        return transactions, True
+
+    print("(providus) No debit/credit swap detected.", file=sys.stderr)
+    return transactions, False
+
+
 def parse(path: str) -> List[Dict[str, str]]:
     transactions = []
     global_headers = None
@@ -21,7 +80,6 @@ def parse(path: str) -> List[Dict[str, str]]:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
                 print(f"(providus): Processing page {page_num}", file=sys.stderr)
-                # Table extraction settings
                 table_settings = {
                     "vertical_strategy": "lines",
                     "horizontal_strategy": "lines",
@@ -96,9 +154,20 @@ def parse(path: str) -> List[Dict[str, str]]:
                                 row.extend([""] * (len(global_headers) - len(row)))
 
                             row_dict = {
-                                global_headers[i]: row[i] if i < len(row) else ""
+                                global_headers[i]: (
+                                    row[i] if i < len(global_headers) else ""
+                                )
                                 for i in range(len(global_headers))
                             }
+
+                            # Skip summary/total rows
+                            if (
+                                row_dict.get("TXN_DATE", "")
+                                .strip()
+                                .lower()
+                                .startswith(("total", "closing", "opening", "subtotal"))
+                            ):
+                                continue
 
                             standardized_row = {
                                 "TXN_DATE": normalize_date(
@@ -156,28 +225,14 @@ def parse(path: str) -> List[Dict[str, str]]:
                         f"(providus): No tables found on page {page_num}, attempting text extraction",
                         file=sys.stderr,
                     )
-                    text = page.extract_text()
-                    if text and global_headers:
-                        lines = text.split("\n")
-                        current_row = []
-                        for line in lines:
-                            if re.match(r"^\d{2}[-/.]\d{2}[-/.]\d{4}", line):
-                                if current_row:
-                                    transactions.append(
-                                        parse_text_row(current_row, global_headers)
-                                    )
-                                current_row = [line]
-                            else:
-                                current_row.append(line)
-                        if current_row:
-                            transactions.append(
-                                parse_text_row(current_row, global_headers)
-                            )
+
+        # 🔑 run swap detector before calculate_checks
+        transactions, _ = detect_and_fix_debit_credit_swap(transactions)
 
         return calculate_checks(
             [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
         )
 
     except Exception as e:
-        print(f"Error processing First Bank statement: {e}", file=sys.stderr)
+        print(f"Error processing Providus Bank statement: {e}", file=sys.stderr)
         return []

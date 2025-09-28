@@ -1,121 +1,124 @@
-import pdfplumber
 import re
 import sys
+import pdfplumber
 from typing import List, Dict
-from utils import *
+
+from utils import (
+    normalize_date,
+    normalize_money,
+    calculate_checks,
+)
+
+# Regex patterns
+RX_TXN_DATE = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}")
+RX_VAL_DATE = re.compile(r"\d{2}-[A-Z]{3}-\d{4}")
+RX_AMOUNT = re.compile(r"[-\d,]+\.\d{2}")
+
+
+def extract_fields(remarks: str) -> Dict[str, str]:
+    date_pattern = re.compile(r"\b\d{2}-[A-Za-z]{3}-\d{4}\b")
+    amount_pattern = re.compile(r"\d[\d,]*\.\d{2}")
+
+    # Work on a copy so we can strip things out
+    cleaned = remarks
+
+    # 1. Find first date
+    date_match = date_pattern.search(remarks)
+    val_date = date_match.group(0) if date_match else ""
+    if val_date:
+        cleaned = cleaned.replace(val_date, "", 1)
+
+    # 2. Reference = token immediately before date
+    reference = ""
+    if date_match:
+        tokens = remarks[: date_match.start()].strip().split()
+        if tokens:
+            reference = tokens[-1]
+            cleaned = re.sub(rf"\b{re.escape(reference)}\b", "", cleaned, count=1)
+
+    # 3. Amounts
+    amounts = amount_pattern.findall(remarks)
+    debit = credit = balance = "0.00"
+    if len(amounts) > 0:
+        balance = amounts[0]
+        cleaned = cleaned.replace(balance, "", 1)
+
+    if len(amounts) > 1:
+        credit, balance = amounts[0], amounts[1]
+        for val in (credit, balance):
+            cleaned = cleaned.replace(val, "", 1)
+
+    if len(amounts) > 2:
+        debit, credit, balance = amounts[0], amounts[1], amounts[2]
+        for val in (debit, credit, balance):
+            cleaned = cleaned.replace(val, "", 1)
+
+    # Final clean up of extra spaces
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+
+    return {
+        "VAL_DATE": val_date,
+        "REFERENCE": reference,
+        "DEBIT": debit,
+        "CREDIT": credit,
+        "BALANCE": balance,
+        "REMARKS": cleaned,  # new cleaned remarks
+    }
 
 
 def parse(path: str) -> List[Dict[str, str]]:
-    transactions = []
-    global_headers = None
+    transactions: List[Dict[str, str]] = []
 
-    try:
-        with pdfplumber.open(path) as pdf:
-            full_text = ""
-            for page_num, page in enumerate(pdf.pages, 1):
-                print(f"(access parser): Processing page {page_num}", file=sys.stderr)
-                text = page.extract_text()
-                if text:
-                    full_text += text + "\n"
+    with pdfplumber.open(path) as pdf:
+        for page_no, page in enumerate(pdf.pages, start=1):
+            text = page.extract_text() or ""
+            lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
-            # Split the full text into lines
-            lines = full_text.split("\n")
+            buffer = {}
+            remarks_parts = []
 
-            # Find the headers
-            for i, line in enumerate(lines):
-                normalized_line = normalize_column_name(line.lower())
-                if "posted date" in normalized_line or "txn date" in normalized_line:
-                    # Assume headers are in this line or next
-                    header_line = line.strip()
-                    global_headers = re.split(
-                        r"\s{2,}", header_line
-                    )  # Split on multiple spaces
-                    global_headers = [
-                        normalize_column_name(h) for h in global_headers if h
-                    ]
-                    print(f"Detected headers: {global_headers}", file=sys.stderr)
-                    start_line = i + 1  # Start transactions after headers
-                    break
+            for line in lines:
+                # Detect start of new transaction
+                txn_date = normalize_date(line.split()[0])
 
-            if not global_headers:
-                print(
-                    "(access parser): No headers found, using default", file=sys.stderr
-                )
-                global_headers = [
-                    "TXN_DATE",
-                    "VAL_DATE",
-                    "REMARKS",
-                    "DEBIT",
-                    "CREDIT",
-                    "BALANCE",
-                ]
+                if RX_TXN_DATE.match(line):
+                    # flush previous buffer if valid
+                    if buffer:
+                        transactions.append(buffer)
 
-            # Parse transactions from lines after headers
-            current_row = []
-            for line in lines[start_line:]:
-                line = line.strip()
-                if not line:
-                    continue
+                        buffer = {}
+                        remarks_parts = []
 
-                # Check if line starts with a date pattern (new row)
-                if re.match(r"^\d{2}-[A-Z]{3}-\d{2}", line):
-                    if current_row:
-                        # Process previous row
-                        transactions.append(
-                            process_row(" ".join(current_row), global_headers)
+                    buffer["TXN_DATE"] = normalize_date(txn_date)
+
+                    # Start remarks with rest of line
+                    remainder = " ".join(line.split()[1:])
+                    if remainder:
+                        remarks_parts.append(remainder)
+                        remainder = " ".join(line.split()[1:])
+
+                        # Extract structured fields from the remainder
+                        extracted = extract_fields(remainder)
+
+                        buffer["VAL_DATE"] = (
+                            normalize_date(extracted["VAL_DATE"]) or txn_date
                         )
-                    current_row = [line]
+                        buffer["REFERENCE"] = extracted["REFERENCE"] or ""
+                        buffer["REMARKS"] = extracted["REMARKS"] or ""
+
+                        if extracted.get("DEBIT"):
+                            buffer["DEBIT"] = normalize_money(extracted["DEBIT"])
+                        if extracted.get("CREDIT"):
+                            buffer["CREDIT"] = normalize_money(extracted["CREDIT"])
+                        if extracted.get("BALANCE"):
+                            buffer["BALANCE"] = normalize_money(extracted["BALANCE"])
+
                 else:
-                    # Append to current row (multi-line description)
-                    current_row.append(line)
+                    # middle lines → keep as remarks or reference
+                    remarks_parts.append(line)
 
-            # Process the last row
-            if current_row:
-                transactions.append(process_row(" ".join(current_row), global_headers))
+            # flush last txn
+            if buffer:
+                transactions.append(buffer)
 
-        return calculate_checks(
-            [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
-        )
-
-    except Exception as e:
-        print(f"Error processing Access Bank PDF: {e}", file=sys.stderr)
-        return []
-
-
-def process_row(row_str: str, headers: List[str]) -> Dict[str, str]:
-    # Split the row string into fields
-    # Pattern: date1 date2 description debit credit balance
-    # Debit/credit: one is number, other is '-'
-    # Use regex to extract
-    date_pattern = r"(\d{2}-[A-Z]{3}-\d{2})\s+(\d{2}-[A-Z]{3}-\d{2})\s+(.*?)(\s+([\d,]+.\d{2}|-)\s+([\d,]+.\d{2}|-)\s+([\d,]+.\d{2}))?$"
-    match = re.match(date_pattern, row_str)
-    if match:
-        txn_date = match.group(1)
-        val_date = match.group(2)
-        remarks = match.group(3).strip()
-        debit = match.group(5) if match.group(5) and match.group(5) != "-" else "0.00"
-        credit = match.group(6) if match.group(6) and match.group(6) != "-" else "0.00"
-        balance = match.group(7) if match.group(7) else ""
-    else:
-        # Fallback splitting
-        parts = re.split(r"\s{2,}", row_str.strip())
-        txn_date = parts[0] if len(parts) > 0 else ""
-        val_date = parts[1] if len(parts) > 1 else ""
-        remarks = " ".join(parts[2:-3]) if len(parts) > 5 else ""
-        debit = parts[-3] if len(parts) > 2 else "0.00"
-        credit = parts[-2] if len(parts) > 1 else "0.00"
-        balance = parts[-1] if len(parts) > 0 else ""
-
-    standardized_row = {
-        "TXN_DATE": normalize_date(txn_date),
-        "VAL_DATE": normalize_date(val_date),
-        "REFERENCE": "",  # Not in this PDF, can extract from remarks if needed
-        "REMARKS": remarks,
-        "DEBIT": debit.replace(",", "") if debit != "-" else "0.00",
-        "CREDIT": credit.replace(",", "") if credit != "-" else "0.00",
-        "BALANCE": balance.replace(",", ""),
-        "Check": "",
-        "Check 2": "",
-    }
-
-    return standardized_row
+    return calculate_checks(transactions)

@@ -136,23 +136,6 @@ def parse(path: str) -> List[Dict[str, str]]:
                         f"(fcmb): No tables found on page {page_num}, attempting text extraction",
                         file=sys.stderr,
                     )
-                    text = page.extract_text()
-                    if text and global_headers:
-                        lines = text.split("\n")
-                        current_row = []
-                        for line in lines:
-                            if re.match(r"^\d{2}[-/.]\d{2}[-/.]\d{4}", line):
-                                if current_row:
-                                    transactions.append(
-                                        parse_text_row(current_row, global_headers)
-                                    )
-                                current_row = [line]
-                            else:
-                                current_row.append(line)
-                        if current_row:
-                            transactions.append(
-                                parse_text_row(current_row, global_headers)
-                            )
 
         return calculate_checks(
             [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]

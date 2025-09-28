@@ -1,134 +1,98 @@
-# banks/opay/universal.py
-import sys
-import re
-from typing import List, Dict
-
 import pdfplumber
-
-from utils import STANDARDIZED_ROW, normalize_date, calculate_checks
-
-# A transaction block starts with: "2025 Mar 15 06:22:57 15 Mar 2025 ..."
-START_RE = re.compile(
-    r"^\s*\d{4}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{1,2}\s+\w{3}\s+\d{4}"
-)
-
-# Amount + balance pair, allow +, -, or plain positive numbers
-AMOUNT_BAL_RE = re.compile(r"([+-]?\d[\d,]*\.\d{2})\s+([\d,]+\.\d{2})")
-
-# Channel keywords between balance and reference
-CHANNEL_RE = re.compile(
-    r"\b(E-Channel|POS|OPay|Palmpay|MONIE POINT|ATM|WebTB)\b",
-    flags=re.IGNORECASE,
-)
+import sys
+import json
+from typing import List, Dict
+from utils import *
 
 
 def parse(path: str) -> List[Dict[str, str]]:
-    """
-    Parse an Opay PDF statement where each transaction may span multiple lines.
-    Returns a list of standardized rows (STANDARDIZED_ROW shape) and runs calculate_checks().
-    """
-    transactions: List[Dict[str, str]] = []
+    transactions = []
+    global_headers = None
 
     try:
         with pdfplumber.open(path) as pdf:
-            for page_num, page in enumerate(pdf.pages, start=1):
-                print(f"(opay): Processing page {page_num}", file=sys.stderr)
-                text = page.extract_text(x_tolerance=2, y_tolerance=2)
-                if not text:
-                    continue
+            for page_num, page in enumerate(pdf.pages, 1):
+                print(f"(opay parser_001): Processing page {page_num}", file=sys.stderr)
+                tables = page.extract_tables(MAIN_TABLE_SETTINGS)
 
-                # normalize lines and drop empty lines
-                lines = [ln for ln in text.splitlines() if ln.strip()]
+                if tables:
+                    for table in tables:
+                        if (
+                            not table or len(table) < 2
+                        ):  # Need at least header + one row
+                            continue
 
-                # group lines into transaction blocks (new block when START_RE matches)
-                blocks = []
-                current_block = []
-                for ln in lines:
-                    if START_RE.match(ln):
-                        if current_block:
-                            blocks.append("\n".join(current_block))
-                        current_block = [ln]
-                    else:
-                        current_block.append(ln)
-                if current_block:
-                    blocks.append("\n".join(current_block))
+                        # OPay headers are consistent: ['Trans. Time', 'Value Date', 'Description', 'Debit/Credit(₦)', 'Balance(₦)', 'Channel', 'Transaction Reference', 'Counterparty']
+                        first_row = [
+                            normalize_column_name(h) if h else "" for h in table[0]
+                        ]
+                        if (
+                            "TXN_DATE" in first_row or "VAL_DATE" in first_row
+                        ):  # Detect header row
+                            global_headers = first_row
+                            data_rows = table[1:]
+                        else:
+                            data_rows = table  # Continuation without headers
 
-                # parse each block
-                for block in blocks:
-                    s = re.sub(r"\s+", " ", block).strip()
+                        if not global_headers:
+                            continue
 
-                    # Skip non-transaction blocks (cover info, headers)
-                    if not START_RE.match(s):
-                        continue
+                        for row in data_rows:
+                            if len(row) < len(global_headers):
+                                row.extend([""] * (len(global_headers) - len(row)))
 
-                    # Find the last amount+balance occurrence
-                    matches = list(AMOUNT_BAL_RE.finditer(s))
-                    if not matches:
-                        continue  # silently skip if no amount+balance
-                    m = matches[-1]
-                    amount_str = m.group(1)
-                    balance_str = m.group(2)
+                            row_dict = {
+                                global_headers[i]: row[i] if i < len(row) else ""
+                                for i in range(len(global_headers))
+                            }
 
-                    # Split prefix/suffix around amount-balance
-                    prefix = s[: m.start()].strip()
-                    suffix = s[m.end() :].strip()
+                            # Standardize for OPay: Split combined Debit/Credit
+                            amount_str = (
+                                row_dict.get("DEBIT/CREDIT(₦)", "")
+                                .replace("₦", "")
+                                .strip()
+                            )
+                            debit = "0.00"
+                            credit = "0.00"
+                            if amount_str.startswith("+"):
+                                credit = amount_str[1:].replace(",", "")
+                            elif amount_str.startswith("-"):
+                                debit = amount_str[1:].replace(",", "")
+                            else:
+                                # Fallback: Assume positive is credit
+                                try:
+                                    amt = to_float(amount_str)
+                                    credit = f"{abs(amt):.2f}" if amt >= 0 else "0.00"
+                                    debit = f"{abs(amt):.2f}" if amt < 0 else "0.00"
+                                except:
+                                    pass
 
-                    # Extract value date + remarks
-                    header_re = re.compile(
-                        r"^(?P<trans_time>\d{4}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(?P<val_date>\d{1,2}\s+\w{3}\s+\d{4})\s*(?P<rest>.*)$"
-                    )
-                    hm = header_re.match(prefix)
-                    if hm:
-                        val_date = hm.group("val_date")
-                        remarks = hm.group("rest").strip()
-                    else:
-                        vd = re.search(r"\d{1,2}\s+\w{3}\s+\d{4}", prefix)
-                        val_date = vd.group(0) if vd else ""
-                        remarks = prefix
+                            standardized_row = {
+                                "TXN_DATE": normalize_date(
+                                    row_dict.get("TRANS. TIME", "")
+                                ),
+                                "VAL_DATE": normalize_date(
+                                    row_dict.get("VALUE DATE", "")
+                                ),
+                                "REFERENCE": row_dict.get("TRANSACTION REFERENCE", ""),
+                                "REMARKS": row_dict.get("DESCRIPTION", "")
+                                + " | "
+                                + row_dict.get("COUNTERPARTY", ""),
+                                "DEBIT": debit,
+                                "CREDIT": credit,
+                                "BALANCE": row_dict.get("BALANCE(₦)", "")
+                                .replace("₦", "")
+                                .replace(",", ""),
+                                "Check": "",
+                                "Check 2": "",
+                            }
 
-                    # Reference: after channel keyword OR last long number
-                    ref = ""
-                    ch = CHANNEL_RE.search(suffix)
-                    if ch:
-                        tail = suffix[ch.end() :].strip()
-                        tk = re.search(r"([A-Za-z0-9\-]{6,})", tail)
-                        if tk:
-                            ref = tk.group(1)
-                    if not ref:
-                        nums = re.findall(r"\b\d{6,}\b", s)
-                        if nums:
-                            ref = nums[-1]
+                            transactions.append(standardized_row)
 
-                    # Clean remarks: remove any trailing channel fragments
-                    remarks = re.sub(
-                        r"\s*(E-Channel|POS|OPay|Palmpay|MONIE POINT|ATM|WebTB)\b.*$",
-                        "",
-                        remarks,
-                        flags=re.IGNORECASE,
-                    ).strip()
-
-                    # Build standardized row
-                    row = STANDARDIZED_ROW.copy()
-                    row["TXN_DATE"] = normalize_date(val_date)
-                    row["VAL_DATE"] = normalize_date(val_date)
-                    row["REFERENCE"] = ref or ""
-                    row["REMARKS"] = remarks
-
-                    amt = amount_str.replace(",", "")
-                    if amt.startswith("-"):
-                        row["DEBIT"] = amt.lstrip("-")
-                        row["CREDIT"] = "0.00"
-                    else:
-                        row["DEBIT"] = "0.00"
-                        row["CREDIT"] = amt.lstrip("+")
-
-                    row["BALANCE"] = balance_str.replace(",", "")
-
-                    transactions.append(row)
-
-        # run balance checks and return
-        return calculate_checks(transactions)
+        return calculate_checks(
+            [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
+        )
 
     except Exception as e:
-        print(f"Error processing Opay statement: {e}", file=sys.stderr)
+        print(f"Error in OPay parser_001: {e}", file=sys.stderr)
         return []
