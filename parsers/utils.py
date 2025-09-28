@@ -1,13 +1,16 @@
 import sys
 import re
-from typing import List, Dict
+from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 from PyPDF2 import PdfReader, PdfWriter
 import tempfile
 
 TOLERANCE = 0.01
 
-## CONSTANTS
+# ------------------------
+# CONSTANTS / MAPPINGS
+# ------------------------
+
 FIELD_MAPPINGS = {
     "TXN_DATE": [
         "txn date",
@@ -23,8 +26,8 @@ FIELD_MAPPINGS = {
         "trans\ndate",
         "transaction\ndate",
         "create date",
-        "actual transaction date",  # ← new
-        "actual\ntransaction\ndate",  # ← new
+        "actual transaction date",
+        "actual\ntransaction\ndate",
     ],
     "VAL_DATE": [
         "value",
@@ -93,7 +96,6 @@ FIELD_MAPPINGS = {
         "CREDIT",
         "credit amount",
         "pay in",
-        # "lodgements",
     ],
     "BALANCE": [
         "balance",
@@ -139,19 +141,80 @@ STANDARDIZED_ROW = {
     "Check 2": "",
 }
 
+# ------------------------
+# COMPILED REGEX (shared)
+# ------------------------
 
-# FUNCTIONS
+RX_AMOUNT_LIKE = re.compile(r"^\s*[-\d,]+(?:\.\d{2})?\s*$")
+RX_TWO_DIGIT_YEAR = re.compile(r"^\s*\d{2}\s*$")  # "25"
+RX_FOUR_DIGIT_YEAR = re.compile(r"^\s*\d{4}\s*$")  # "2025"
+RX_ENDS_MONTH_DASH = re.compile(
+    r"^\s*\d{2}-[A-Z]{3}-\s*$"
+)  # "30-JAN-" (optional spaces around)
+RX_MULTI_WS = re.compile(r"\s+")
+
+
+# ------------------------
+# NUMERIC / MONEY HELPERS
+# ------------------------
 def to_float(value: str) -> float:
     value = value.strip() if value else ""
-    if not value or value == "-" or value == "":
+    if not value or value in {"-", ""}:
         return 0.0
     try:
-        # Remove currency symbols, commas, and handle negative numbers
         cleaned = re.sub(r"[^\d.-]", "", value)
         return float(cleaned)
     except ValueError:
         print(f"Warning: Could not parse number '{value}'", file=sys.stderr)
         return 0.0
+
+
+def clean_money(s: Optional[str]) -> str:
+    """
+    Normalizes placeholders like '----', '—', '' to '0.00',
+    strips non-numeric clutter, returns 2dp string.
+    """
+    if not s:
+        return "0.00"
+    t = s.strip()
+    if t in {"", "-", "—", "----"}:
+        return "0.00"
+    if not RX_AMOUNT_LIKE.match(t):
+        t = re.sub(r"[^\d.,-]", "", t)
+    try:
+        return f"{to_float(t):.2f}"
+    except Exception:
+        return "0.00"
+
+
+def normalize_money(s: Optional[str]) -> str:
+    """Alias for clean_money for readability in parsers."""
+    return clean_money(s)
+
+
+# ------------------------
+# DATE HELPERS
+# ------------------------
+def join_date_fragments(s: str) -> str:
+    """
+    Turns '03-FEB-\\n25' or '03- FEB- 25' into '03-FEB-25' (prior to normalize_date()).
+    """
+    if not s:
+        return ""
+    return RX_MULTI_WS.sub("", s)
+
+
+def is_two_digit_year(s: str) -> bool:
+    return bool(RX_TWO_DIGIT_YEAR.fullmatch((s or "").strip()))
+
+
+def is_year_only(s: str) -> bool:
+    ss = (s or "").strip()
+    return bool(RX_TWO_DIGIT_YEAR.fullmatch(ss) or RX_FOUR_DIGIT_YEAR.fullmatch(ss))
+
+
+def ends_with_month_dash(s: str) -> bool:
+    return bool(RX_ENDS_MONTH_DASH.fullmatch((s or "").strip()))
 
 
 def normalize_date(date_str: str) -> str:
@@ -162,24 +225,23 @@ def normalize_date(date_str: str) -> str:
     if re.match(r"(?i)^(total|closing|opening|balance|subtotal)", date_str.strip()):
         return ""
 
-    # Clean up spaces and dash issues
-    cleaned = re.sub(r"\s+", " ", date_str.strip())  # collapse multiple spaces
-    cleaned = re.sub(r"-\s+", "-", cleaned)  # remove space after dash
-    cleaned = re.sub(r":\s+", ":", cleaned)  # remove space after colon in time
+    # Collapse weird spacing and punctuation spacing
+    cleaned = re.sub(r"\s+", " ", date_str.strip())
+    cleaned = re.sub(r"-\s+", "-", cleaned)
+    cleaned = re.sub(r":\s+", ":", cleaned)
 
-    # Handle cases like '2025-03-13\n2025-03-13'
+    # Handle lines broken with newlines
     if "\n" in date_str or "\r" in date_str:
         parts = [p.strip() for p in re.split(r"[\r\n]+", date_str) if p.strip()]
-        if len(set(parts)) == 1:  # same date duplicated
+        if len(set(parts)) == 1:
             cleaned = parts[0]
-        elif parts:  # multiple different dates → prefer first (TXN over VAL)
+        elif parts:
             cleaned = parts[0]
 
     # Fix truncated 4-digit year like '024-12-09'
     if re.match(r"^\d{3}-\d{2}-\d{2}$", cleaned):
         cleaned = "2" + cleaned
 
-    # Supported date formats (added US-style month/day/year)
     date_formats = [
         "%d-%b-%Y",
         "%d-%b-%y",
@@ -187,8 +249,8 @@ def normalize_date(date_str: str) -> str:
         "%d/%m/%y",
         "%d-%m-%Y",
         "%d-%m-%y",
-        "%m/%d/%Y",  # ✅ e.g. 1/30/2025
-        "%m/%d/%y",  # ✅ e.g. 1/30/25
+        "%m/%d/%Y",
+        "%m/%d/%y",
         "%Y-%m-%d",
         "%Y-%m-%dT%H:%M:%S",
         "%d %b %Y",
@@ -201,16 +263,18 @@ def normalize_date(date_str: str) -> str:
     for fmt in date_formats:
         try:
             dt = datetime.strptime(cleaned, fmt)
-            # Return in Excel-friendly ISO format
-            return dt.strftime("%Y-%m-%d")  # ✅ Excel recognizes & sorts
+            return dt.strftime("%Y-%m-%d")
         except ValueError:
             continue
 
-    # If nothing matches, log and return original
+    # If nothing matches, keep original so upstream can decide what to do.
     print(f"Warning: Could not parse date '{date_str}'", file=sys.stderr)
     return date_str
 
 
+# ------------------------
+# COLUMN / ROW HELPERS
+# ------------------------
 def normalize_column_name(col: str) -> str:
     if not col:
         return ""
@@ -226,9 +290,9 @@ def calculate_checks(transactions: List[Dict[str, str]]) -> List[Dict[str, str]]
     prev_balance = None
 
     for txn in transactions:
-        debit = to_float(txn["DEBIT"])
-        credit = to_float(txn["CREDIT"])
-        current_balance = to_float(txn["BALANCE"])
+        debit = to_float(txn.get("DEBIT", "0.00"))
+        credit = to_float(txn.get("CREDIT", "0.00"))
+        current_balance = to_float(txn.get("BALANCE", "0.00"))
 
         if prev_balance is not None:
             expected = round(prev_balance - debit + credit, 2)
@@ -247,7 +311,6 @@ def calculate_checks(transactions: List[Dict[str, str]]) -> List[Dict[str, str]]
 
 
 def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
-    # standardized_row = STANDARDIZED_ROW
     standardized_row = STANDARDIZED_ROW.copy()
 
     if len(row) < len(headers):
@@ -255,36 +318,135 @@ def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
 
     row_dict = {headers[i]: row[i] if i < len(row) else "" for i in range(len(headers))}
 
+    # Join fragments before normalize_date
     standardized_row["TXN_DATE"] = normalize_date(
-        row_dict.get("TXN_DATE", row_dict.get("VAL_DATE", ""))
+        join_date_fragments(row_dict.get("TXN_DATE", row_dict.get("VAL_DATE", "")))
     )
     standardized_row["VAL_DATE"] = normalize_date(
-        row_dict.get("VAL_DATE", row_dict.get("TXN_DATE", ""))
+        join_date_fragments(row_dict.get("VAL_DATE", row_dict.get("TXN_DATE", "")))
     )
 
     standardized_row["REFERENCE"] = row_dict.get("REFERENCE", "")
     standardized_row["REMARKS"] = row_dict.get("REMARKS", "")
 
-    standardized_row["DEBIT"] = row_dict.get("DEBIT", "0.00") or "0.00"
-    standardized_row["CREDIT"] = row_dict.get("CREDIT", "0.00") or "0.00"
-    standardized_row["BALANCE"] = row_dict.get("BALANCE", "0.00")
+    standardized_row["DEBIT"] = normalize_money(row_dict.get("DEBIT", "0.00"))
+    standardized_row["CREDIT"] = normalize_money(row_dict.get("CREDIT", "0.00"))
+    bal_raw = (row_dict.get("BALANCE", "") or "").strip()
+    standardized_row["BALANCE"] = f"{to_float(bal_raw):.2f}" if bal_raw else ""
 
     return standardized_row
+
+
+# ------------------------
+# PAGE-BREAK YEAR ARTIFACT HELPERS
+# ------------------------
+
+
+def looks_like_year_artifact(row: Dict[str, str]) -> bool:
+    """
+    Detects the 'year-only' page-break artifact you described:
+    - TXN_DATE and VAL_DATE are two-digit numbers (e.g., '25')
+    - REMARKS empty
+    - DEBIT and CREDIT are '' or '0.00'
+    - BALANCE empty
+    """
+    no_remarks = not (row.get("REMARKS") or "").strip()
+    debit = (row.get("DEBIT") or "").strip()
+    credit = (row.get("CREDIT") or "").strip()
+    balance = (row.get("BALANCE") or "").strip()
+    money_empty = debit in {"", "0.00"} and credit in {"", "0.00"} and balance == ""
+    year_only_dates = is_two_digit_year(row.get("TXN_DATE")) and is_two_digit_year(
+        row.get("VAL_DATE")
+    )
+    return no_remarks and money_empty and year_only_dates
+
+
+def merge_year_artifact(prev_row: Dict[str, str], artifact_row: Dict[str, str]) -> bool:
+    """
+    If prev_row has RAW_TXN_DATE/RAW_VAL_DATE (preferred) or TXN_DATE/VAL_DATE
+    ending with 'DD-MMM-', append the artifact year ('25' or '2025'),
+    re-normalize, update prev_row in-place, and return True.
+    Returns False if merge didn't apply.
+    """
+    y = (artifact_row.get("TXN_DATE") or "").strip()
+    if not y:
+        return False
+
+    raw_txn = prev_row.get("RAW_TXN_DATE", prev_row.get("TXN_DATE", ""))
+    raw_val = prev_row.get("RAW_VAL_DATE", prev_row.get("VAL_DATE", ""))
+
+    if ends_with_month_dash(raw_txn) and ends_with_month_dash(raw_val):
+        merged_txn_raw = f"{raw_txn}{y}"
+        merged_val_raw = f"{raw_val}{y}"
+
+        prev_row["RAW_TXN_DATE"] = merged_txn_raw
+        prev_row["RAW_VAL_DATE"] = merged_val_raw
+        prev_row["TXN_DATE"] = normalize_date(join_date_fragments(merged_txn_raw))
+        prev_row["VAL_DATE"] = normalize_date(join_date_fragments(merged_val_raw))
+        return True
+
+    return False
+
+
+def merge_and_drop_year_artifacts(rows: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """
+    Walks the list, merges 'year-only' artifact rows into the previous row when possible,
+    and drops the artifact rows. Also normalizes money and dates on the way.
+    Safe to call from any parser after initial extraction.
+    """
+    out: List[Dict[str, str]] = []
+    i = 0
+    while i < len(rows):
+        r = rows[i]
+        if looks_like_year_artifact(r) and out:
+            merged = merge_year_artifact(out[-1], r)
+            # Drop the artifact either way
+            i += 1
+            continue
+
+        # Normalize money + internal date fragments defensively
+        r["DEBIT"] = normalize_money(r.get("DEBIT", "0.00"))
+        r["CREDIT"] = normalize_money(r.get("CREDIT", "0.00"))
+        bal_raw = (r.get("BALANCE", "") or "").strip()
+        r["BALANCE"] = f"{to_float(bal_raw):.2f}" if bal_raw else ""
+
+        if r.get("TXN_DATE"):
+            r["TXN_DATE"] = normalize_date(join_date_fragments(r["TXN_DATE"]))
+        if r.get("VAL_DATE"):
+            r["VAL_DATE"] = normalize_date(join_date_fragments(r["VAL_DATE"]))
+
+        out.append(r)
+        i += 1
+
+    # Remove helper keys if present
+    for r in out:
+        r.pop("RAW_TXN_DATE", None)
+        r.pop("RAW_VAL_DATE", None)
+    return out
+
+
+# ------------------------
+# PDF DECRYPT
+# ------------------------
 
 
 def decrypt_pdf(
     pdf_path: str,
     password: str = "",
-    effective_path: str = None,
-    temp_file_path: str = None,
-) -> str:
+    effective_path: Optional[str] = None,
+    temp_file_path: Optional[str] = None,
+) -> Tuple[str, str]:
+    """
+    Returns (readable_path, effective_path).
+    - If encrypted and password is correct: writes a temporary decrypted copy and returns its path.
+    - If not encrypted: returns (pdf_path, pdf_path).
+    """
     reader = PdfReader(pdf_path)
     if reader.is_encrypted:
         if not password:
             raise ValueError("Encrypted PDF detected. Please provide a password.")
         reader.decrypt(password)
-        print("PDF decrypted successfully.")
-        # Create a temporary file for the decrypted PDF
+        print("PDF decrypted successfully.", file=sys.stderr)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
             writer = PdfWriter()
             for page in reader.pages:
@@ -292,4 +454,7 @@ def decrypt_pdf(
             writer.write(temp_file)
             temp_file_path = temp_file.name
             effective_path = temp_file_path
-        return temp_file_path, effective_path
+        return temp_file_path, effective_path or temp_file_path
+
+    # Not encrypted
+    return pdf_path, effective_path or pdf_path
