@@ -1,98 +1,90 @@
-import pdfplumber
+# banks/opay/universal.py
 import sys
-import json
+import pdfplumber
 from typing import List, Dict
-from utils import *
+from utils import (
+    normalize_column_name,
+    FIELD_MAPPINGS,
+    normalize_date,
+    to_float,
+    parse_text_row,
+    calculate_checks,
+)
 
 
 def parse(path: str) -> List[Dict[str, str]]:
     transactions = []
     global_headers = None
+    global_header_map = None
 
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"(opay parser_001): Processing page {page_num}", file=sys.stderr)
-                tables = page.extract_tables(MAIN_TABLE_SETTINGS)
+                print(f"(opay): Processing page {page_num}", file=sys.stderr)
+                tables = page.extract_tables()
 
-                if tables:
-                    for table in tables:
-                        if (
-                            not table or len(table) < 2
-                        ):  # Need at least header + one row
-                            continue
+                if not tables:
+                    continue
 
-                        # OPay headers are consistent: ['Trans. Time', 'Value Date', 'Description', 'Debit/Credit(₦)', 'Balance(₦)', 'Channel', 'Transaction Reference', 'Counterparty']
-                        first_row = [
-                            normalize_column_name(h) if h else "" for h in table[0]
-                        ]
-                        if (
-                            "TXN_DATE" in first_row or "VAL_DATE" in first_row
-                        ):  # Detect header row
-                            global_headers = first_row
-                            data_rows = table[1:]
-                        else:
-                            data_rows = table  # Continuation without headers
+                for table in tables:
+                    if not table or len(table) < 1:
+                        continue
 
-                        if not global_headers:
-                            continue
+                    first_row = table[0]
+                    normalized_first_row = [
+                        normalize_column_name(h) if h else "" for h in first_row
+                    ]
 
-                        for row in data_rows:
-                            if len(row) < len(global_headers):
-                                row.extend([""] * (len(global_headers) - len(row)))
+                    is_header_row = any(
+                        h in FIELD_MAPPINGS for h in normalized_first_row if h
+                    )
 
-                            row_dict = {
-                                global_headers[i]: row[i] if i < len(row) else ""
-                                for i in range(len(global_headers))
-                            }
+                    if is_header_row and not global_headers:
+                        global_headers = normalized_first_row
+                        global_header_map = {
+                            i: h
+                            for i, h in enumerate(global_headers)
+                            if h in FIELD_MAPPINGS
+                        }
+                        data_rows = table[1:]
+                    elif is_header_row and global_headers:
+                        data_rows = (
+                            table[1:]
+                            if normalized_first_row == global_headers
+                            else table
+                        )
+                    else:
+                        data_rows = table
 
-                            # Standardize for OPay: Split combined Debit/Credit
-                            amount_str = (
-                                row_dict.get("DEBIT/CREDIT(₦)", "")
-                                .replace("₦", "")
-                                .strip()
-                            )
-                            debit = "0.00"
-                            credit = "0.00"
-                            if amount_str.startswith("+"):
-                                credit = amount_str[1:].replace(",", "")
-                            elif amount_str.startswith("-"):
-                                debit = amount_str[1:].replace(",", "")
-                            else:
-                                # Fallback: Assume positive is credit
-                                try:
-                                    amt = to_float(amount_str)
-                                    credit = f"{abs(amt):.2f}" if amt >= 0 else "0.00"
-                                    debit = f"{abs(amt):.2f}" if amt < 0 else "0.00"
-                                except:
-                                    pass
+                    if not global_headers:
+                        print(
+                            f"(opay): No headers found by page {page_num}, skipping",
+                            file=sys.stderr,
+                        )
+                        continue
 
-                            standardized_row = {
-                                "TXN_DATE": normalize_date(
-                                    row_dict.get("TRANS. TIME", "")
-                                ),
-                                "VAL_DATE": normalize_date(
-                                    row_dict.get("VALUE DATE", "")
-                                ),
-                                "REFERENCE": row_dict.get("TRANSACTION REFERENCE", ""),
-                                "REMARKS": row_dict.get("DESCRIPTION", "")
-                                + " | "
-                                + row_dict.get("COUNTERPARTY", ""),
-                                "DEBIT": debit,
-                                "CREDIT": credit,
-                                "BALANCE": row_dict.get("BALANCE(₦)", "")
-                                .replace("₦", "")
-                                .replace(",", ""),
-                                "Check": "",
-                                "Check 2": "",
-                            }
+                    for row in data_rows:
+                        if len(row) < len(global_headers):
+                            row.extend([""] * (len(global_headers) - len(row)))
+                        row_dict = {
+                            global_headers[i]: row[i]
+                            for i in range(len(global_headers))
+                        }
+                        txn = {
+                            "TXN_DATE": normalize_date(row_dict.get("TXN_DATE", "")),
+                            "VAL_DATE": normalize_date(row_dict.get("VAL_DATE", "")),
+                            "REFERENCE": row_dict.get("REFERENCE", ""),
+                            "REMARKS": row_dict.get("REMARKS", ""),
+                            "DEBIT": row_dict.get("DEBIT", "0.00"),
+                            "CREDIT": row_dict.get("CREDIT", "0.00"),
+                            "BALANCE": row_dict.get("BALANCE", ""),
+                            "Check": "",
+                            "Check 2": "",
+                        }
+                        transactions.append(txn)
 
-                            transactions.append(standardized_row)
-
-        return calculate_checks(
-            [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
-        )
+        return calculate_checks(transactions)
 
     except Exception as e:
-        print(f"Error in OPay parser_001: {e}", file=sys.stderr)
+        print(f"Error processing Opay statement: {e}", file=sys.stderr)
         return []
