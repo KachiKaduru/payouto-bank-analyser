@@ -226,17 +226,23 @@ def normalize_date(date_str: str) -> str:
         return ""
 
     # Collapse weird spacing and punctuation spacing
-    cleaned = re.sub(r"\s+", " ", date_str.strip())
-    cleaned = re.sub(r"-\s+", "-", cleaned)
-    cleaned = re.sub(r":\s+", ":", cleaned)
+    # cleaned = re.sub(r"\s+", " ", date_str.strip())
+    # cleaned = re.sub(r"-\s+", "-", cleaned)
+    # cleaned = re.sub(r":\s+", ":", cleaned)
 
-    # Handle lines broken with newlines
+    cleaned = re.sub(r"\s*-\s*", "-", date_str.strip())
+    cleaned = re.sub(r"\s*:\s*", ":", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+
+    # Handle lines broken with newlines (e.g. "11-Dec-\n2024")
     if "\n" in date_str or "\r" in date_str:
-        parts = [p.strip() for p in re.split(r"[\r\n]+", date_str) if p.strip()]
-        if len(set(parts)) == 1:
-            cleaned = parts[0]
-        elif parts:
-            cleaned = parts[0]
+        parts = [p.strip("- ") for p in re.split(r"[\r\n]+", date_str) if p.strip()]
+        if parts:
+            cleaned = "-".join(parts)  # "11-Dec-" + "2024" → "11-Dec-2024"
+        else:
+            cleaned = date_str.strip()
+    else:
+        cleaned = date_str.strip()
 
     # Fix truncated 4-digit year like '024-12-09'
     if re.match(r"^\d{3}-\d{2}-\d{2}$", cleaned):
