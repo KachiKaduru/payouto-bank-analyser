@@ -232,10 +232,6 @@ def normalize_date(date_str: str) -> str:
         return ""
 
     # Collapse weird spacing and punctuation spacing
-    # cleaned = re.sub(r"\s+", " ", date_str.strip())
-    # cleaned = re.sub(r"-\s+", "-", cleaned)
-    # cleaned = re.sub(r":\s+", ":", cleaned)
-
     cleaned = re.sub(r"\s*-\s*", "-", date_str.strip())
     cleaned = re.sub(r"\s*:\s*", ":", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned)

@@ -1,29 +1,35 @@
 "use client";
 
-import { DocumentTextIcon } from "@heroicons/react/16/solid";
 import UploadForm from "./_components/UploadForm";
-import Stats from "./_components/Stats";
-import ResultsTable from "./_components/ResultsTable";
+
 import ErrorSection from "./_components/ErrorSection";
+import Tabs from "./_components/Tabs";
+import { useParserStore } from "./_store/useParserStore";
+import Analysis from "./_components/Analysis";
+import TableData from "./_components/TableData";
+import PageHeader from "./_components/PageHeader";
+import LoadingPage from "./_components/LoadingPage";
 
 export default function Home() {
+  const activeTab = useParserStore((s) => s.activeTab);
+
   return (
     <main className="min-h-[100dvh] bg-gradient-to-b from-blue-50 via-white to-blue-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <h1 className="text-3xl font-bold text-blue-800 mb-6 text-center flex items-center justify-center">
-          <DocumentTextIcon className="w-10 h-10" />
-          <span>Bank Statement Parser</span>
-        </h1>
-
+      <section className="max-w-7xl mx-auto">
+        <PageHeader />
         <UploadForm />
-
         <ErrorSection />
 
-        <Stats />
+        <div className="">
+          <Tabs />
 
-        <ResultsTable />
-      </div>
+          <TableData className={activeTab === "table" ? "block" : "hidden"} />
+
+          <Analysis className={activeTab === "analysis" ? "block" : "hidden"} />
+        </div>
+      </section>
+
+      {/* <LoadingPage /> */}
     </main>
   );
 }

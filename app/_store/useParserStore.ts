@@ -1,5 +1,6 @@
+// app/_store/useParserStore.ts
 import { create } from "zustand";
-import { ParsedRow } from "../_types";
+import { ParsedRow, Tab } from "../_types";
 
 interface ParserState {
   file: File | null;
@@ -10,6 +11,8 @@ interface ParserState {
   password: string;
   showPasswordInput: boolean;
 
+  activeTab: Tab;
+
   // actions
   setFile: (file: File | null) => void;
   setBank: (bank: string) => void;
@@ -19,6 +22,8 @@ interface ParserState {
   setPassword: (password: string) => void;
   setShowPasswordInput: (show: boolean) => void;
   reset: () => void;
+
+  setActiveTab: (tab: Tab) => void;
 }
 
 export const useParserStore = create<ParserState>((set) => ({
@@ -29,6 +34,7 @@ export const useParserStore = create<ParserState>((set) => ({
   error: "",
   password: "",
   showPasswordInput: false,
+  activeTab: "table",
 
   setFile: (file) => set({ file }),
   setBank: (bank) => set({ bank }),
@@ -48,4 +54,6 @@ export const useParserStore = create<ParserState>((set) => ({
       password: "",
       showPasswordInput: false,
     }),
+
+  setActiveTab: (tab: Tab) => set({ activeTab: tab }),
 }));

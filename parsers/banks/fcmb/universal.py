@@ -7,6 +7,7 @@ from utils import (
     normalize_column_name,
     FIELD_MAPPINGS,
     normalize_date,
+    normalize_money,
     to_float,
     parse_text_row,
     calculate_checks,
@@ -118,11 +119,11 @@ def parse(path: str) -> List[Dict[str, str]]:
                                     standardized_row["CREDIT"] = "0.00"
                                 prev_balance = current_balance
                             else:
-                                standardized_row["DEBIT"] = row_dict.get(
-                                    "DEBIT", "0.00"
+                                standardized_row["DEBIT"] = normalize_money(
+                                    row_dict.get("DEBIT", "0.00")
                                 )
-                                standardized_row["CREDIT"] = row_dict.get(
-                                    "CREDIT", "0.00"
+                                standardized_row["CREDIT"] = normalize_money(
+                                    row_dict.get("CREDIT", "0.00")
                                 )
                                 prev_balance = (
                                     to_float(standardized_row["BALANCE"])

@@ -8,6 +8,7 @@ from utils import (
     FIELD_MAPPINGS,
     normalize_date,
     to_float,
+    normalize_money,
     parse_text_row,
     calculate_checks,
 )
@@ -196,7 +197,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                                 "REMARKS": row_dict.get("REMARKS", ""),
                                 "DEBIT": "",
                                 "CREDIT": "",
-                                "BALANCE": row_dict.get("BALANCE", ""),
+                                "BALANCE": normalize_money(row_dict.get("BALANCE", "")),
                                 "Check": "",
                                 "Check 2": "",
                             }

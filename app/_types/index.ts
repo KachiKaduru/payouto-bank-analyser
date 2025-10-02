@@ -16,3 +16,5 @@ export interface ParsedRow {
   Check: string;
   "Check 2": string;
 }
+
+export type Tab = "table" | "analysis";

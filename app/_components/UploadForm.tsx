@@ -49,19 +49,23 @@ export default function UploadForm() {
 
           {search && (
             <ul className="absolute left-0 right-0 bg-white border border-gray-200 mt-1 max-h-48 overflow-y-auto rounded-lg shadow-lg z-10">
-              {filteredBanks.map((bankOption) => (
-                <li
-                  key={bankOption.value}
-                  onClick={() => {
-                    setBank(bankOption.value);
-                    setDisplayedBank(bankOption.label);
-                    setSearch("");
-                  }}
-                  className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
-                >
-                  {bankOption.label}
-                </li>
-              ))}
+              {filteredBanks.length ? (
+                filteredBanks.map((bankOption) => (
+                  <li
+                    key={bankOption.value}
+                    onClick={() => {
+                      setBank(bankOption.value);
+                      setDisplayedBank(bankOption.label);
+                      setSearch("");
+                    }}
+                    className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
+                  >
+                    {bankOption.label}
+                  </li>
+                ))
+              ) : (
+                <li className="px-3 py-2 text-gray-500">No banks found</li>
+              )}
             </ul>
           )}
         </div>
@@ -69,7 +73,7 @@ export default function UploadForm() {
         {/* Drag & Drop uploader */}
         <div
           {...getRootProps()}
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition cursor-pointer ${
+          className={`border-2 border-dashed rounded-lg p-14 text-center transition cursor-pointer ${
             isDragActive
               ? "border-blue-500 bg-blue-50"
               : "border-gray-300 bg-gray-50 hover:bg-gray-100"
