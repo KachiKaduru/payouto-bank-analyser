@@ -8,7 +8,7 @@ import { useParserStore } from "./_store/useParserStore";
 import Analysis from "./_components/Analysis";
 import TableData from "./_components/TableData";
 import PageHeader from "./_components/PageHeader";
-import LoadingPage from "./_components/LoadingPage";
+// import LoadingPage from "./_components/LoadingPage";
 
 export default function Home() {
   const activeTab = useParserStore((s) => s.activeTab);
