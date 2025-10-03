@@ -39,6 +39,7 @@ export const banksList = [
   { value: "moniepoint", label: "Moniepoint MFB" },
   { value: "nomba", label: "Nomba Bank" },
   { value: "opay", label: "Opay MFB" },
+  // { value: "palmpay", label: "Palmpay MFB" },
   { value: "polaris", label: "Polaris Bank" },
   { value: "providus", label: "Providus Bank" },
   { value: "stanbic", label: "Stanbic IBTC Bank" },

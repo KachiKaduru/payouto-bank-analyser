@@ -2,7 +2,6 @@ import sys
 import re
 import pdfplumber
 from typing import List, Dict
-
 from utils import (
     normalize_column_name,
     FIELD_MAPPINGS,
@@ -21,7 +20,7 @@ def parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"(uba): Processing page {page_num}", file=sys.stderr)
+                print(f"(palmpay): Processing page {page_num}", file=sys.stderr)
                 # Table extraction settings
                 table_settings = {
                     "vertical_strategy": "lines",
@@ -48,6 +47,10 @@ def parse(path: str) -> List[Dict[str, str]]:
                         is_header_row = any(
                             h in FIELD_MAPPINGS for h in normalized_first_row if h
                         )
+
+                        if not is_header_row:
+                            if len(first_row) <= 2:
+                                continue
 
                         if is_header_row and not global_headers:
                             global_headers = normalized_first_row
@@ -79,7 +82,7 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                         if not global_headers:
                             print(
-                                f"(uba): No headers found by page {page_num}, skipping table",
+                                f"(palmpay): No headers found by page {page_num}, skipping table",
                                 file=sys.stderr,
                             )
                             continue
@@ -154,7 +157,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                             transactions.append(standardized_row)
                 else:
                     print(
-                        f"(uba): No tables found on page {page_num}, attempting text extraction",
+                        f"(palmpay): No tables found on page {page_num}, attempting text extraction",
                         file=sys.stderr,
                     )
                     text = page.extract_text()
@@ -180,5 +183,5 @@ def parse(path: str) -> List[Dict[str, str]]:
         )
 
     except Exception as e:
-        print(f"Error processing UBA statement: {e}", file=sys.stderr)
+        print(f"Error processing Palmpay statement: {e}", file=sys.stderr)
         return []

@@ -117,7 +117,7 @@ def main_parse(path: str) -> List[Dict[str, str]]:
                                 "REMARKS": row_dict.get("REMARKS", ""),
                                 "DEBIT": "",
                                 "CREDIT": "",
-                                "BALANCE": row_dict.get("BALANCE", ""),
+                                "BALANCE": normalize_money(row_dict.get("BALANCE", "")),
                                 "Check": "",
                                 "Check 2": "",
                             }
@@ -140,11 +140,11 @@ def main_parse(path: str) -> List[Dict[str, str]]:
                                     standardized_row["CREDIT"] = "0.00"
                                 prev_balance = current_balance
                             else:
-                                standardized_row["DEBIT"] = row_dict.get(
-                                    "DEBIT", "0.00"
+                                standardized_row["DEBIT"] = normalize_money(
+                                    row_dict.get("DEBIT", "0.00")
                                 )
-                                standardized_row["CREDIT"] = row_dict.get(
-                                    "CREDIT", "0.00"
+                                standardized_row["CREDIT"] = normalize_money(
+                                    row_dict.get("CREDIT", "0.00")
                                 )
                                 prev_balance = (
                                     to_float(standardized_row["BALANCE"])

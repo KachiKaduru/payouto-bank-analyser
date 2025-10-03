@@ -7,6 +7,7 @@ from utils import (
     normalize_column_name,
     FIELD_MAPPINGS,
     to_float,
+    normalize_money,
     calculate_checks,
     normalize_date,
     MAIN_TABLE_SETTINGS,
