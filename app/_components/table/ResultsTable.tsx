@@ -1,5 +1,5 @@
 import React from "react";
-import { useParserStore } from "../_store/useParserStore";
+import { useParserStore } from "../../_store/useParserStore";
 
 function Table() {
   const data = useParserStore((s) => s.data);
