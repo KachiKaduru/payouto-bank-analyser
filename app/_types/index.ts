@@ -6,8 +6,8 @@ export interface RowData {
 }
 
 export interface ParsedRow {
-  "TXN DATE": string;
-  "VAL DATE": string;
+  TXN_DATE: string;
+  VAL_DATE: string;
   REFERENCE: string;
   REMARKS: string;
   DEBIT: string;

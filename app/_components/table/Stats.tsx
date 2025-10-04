@@ -1,6 +1,6 @@
 import { useMemo } from "react";
+import { useParserStore } from "../../_store/useParserStore";
 import ExportExcelButton from "./ExportExcelButton";
-import { useParserStore } from "../_store/useParserStore";
 
 export default function Stats() {
   const data = useParserStore((s) => s.data);

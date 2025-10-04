@@ -1,7 +1,7 @@
+import { useParserStore } from "@/app/_store/useParserStore";
+import { ParsedRow } from "@/app/_types";
 import { ArrowDownTrayIcon } from "@heroicons/react/16/solid";
-import { ParsedRow } from "../_types";
 import * as XLSX from "xlsx";
-import { useParserStore } from "../_store/useParserStore";
 
 export default function ExportExcelButton() {
   const { data, file } = useParserStore();

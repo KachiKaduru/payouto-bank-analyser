@@ -1,14 +1,14 @@
 "use client";
 
-import UploadForm from "./_components/UploadForm";
+import { useParserStore } from "./_store/useParserStore";
 
+import PageHeader from "./_components/PageHeader";
+import UploadForm from "./_components/UploadForm";
 import ErrorSection from "./_components/ErrorSection";
 import Tabs from "./_components/Tabs";
-import { useParserStore } from "./_store/useParserStore";
-import Analysis from "./_components/Analysis";
-import TableData from "./_components/TableData";
-import PageHeader from "./_components/PageHeader";
-// import LoadingPage from "./_components/LoadingPage";
+
+import TableData from "./_components/table/TableData";
+import AnalysisSection from "./_components/analysis/AnalysisSection";
 
 export default function Home() {
   const activeTab = useParserStore((s) => s.activeTab);
@@ -20,16 +20,12 @@ export default function Home() {
         <UploadForm />
         <ErrorSection />
 
-        <div className="">
-          <Tabs />
+        <Tabs />
 
-          <TableData className={activeTab === "table" ? "block" : "hidden"} />
+        <TableData className={activeTab === "table" ? "block" : "hidden"} />
 
-          <Analysis className={activeTab === "analysis" ? "block" : "hidden"} />
-        </div>
+        <AnalysisSection className={activeTab === "analysis" ? "block" : "hidden"} />
       </section>
-
-      {/* <LoadingPage /> */}
     </main>
   );
 }

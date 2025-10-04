@@ -1,18 +1,6 @@
 import { create } from "zustand";
 import { ParsedRow } from "../_types";
-
-export type RangePreset = "last30" | "last60" | "last90" | "all" | "custom";
-export type SortKey = "none" | "largestCredit" | "largestDebit" | "txnDateAsc" | "txnDateDesc";
-export type BucketMode = "none" | "monthly" | "biMonthly" | "quarterly";
-
-export interface AnalysisFilters {
-  preset: RangePreset;
-  customFrom?: string; // YYYY-MM-DD
-  customTo?: string; // YYYY-MM-DD
-  search: string; // REMARKS/REFERENCE
-  sortBy: SortKey;
-  bucket: BucketMode;
-}
+import { AnalysisFilters, SortKey } from "../_types/analysis-types";
 
 interface AnalysisState {
   raw: ParsedRow[];
@@ -24,7 +12,15 @@ interface AnalysisState {
     rows: number;
     passRatio: number;
   };
-  buckets: Array<{ label: string; debit: number; credit: number; net: number; rows: number }>;
+  buckets: Array<{
+    label: string;
+    debit: number;
+    credit: number;
+    net: number;
+    rows: number;
+    debitCount?: number;
+    creditCount?: number;
+  }>;
   /** uses classifyType so it's not unused and also gives quick breakdowns */
   typeSummary: Record<
     "transferIn" | "transferOut" | "pos" | "levy" | "airtime" | "data" | "other",
@@ -148,13 +144,13 @@ const dateAddDays = (iso: string, days: number) => {
 };
 
 const startOfDataISO = (rows: ParsedRow[]): string | null => {
-  const isos = rows.map((r) => toISO(r["TXN DATE"])).filter(Boolean) as string[];
+  const isos = rows.map((r) => toISO(r.TXN_DATE)).filter(Boolean) as string[];
   if (!isos.length) return null;
   isos.sort((a, b) => a.localeCompare(b));
   return isos[0];
 };
 const endOfDataISO = (rows: ParsedRow[]): string | null => {
-  const isos = rows.map((r) => toISO(r["TXN DATE"])).filter(Boolean) as string[];
+  const isos = rows.map((r) => toISO(r.TXN_DATE)).filter(Boolean) as string[];
   if (!isos.length) return null;
   isos.sort((a, b) => a.localeCompare(b));
   return isos[isos.length - 1];
@@ -165,7 +161,7 @@ const sortRows = (rows: ParsedRow[], sortBy: SortKey) => {
     ...r,
     _debit: parseMoney(r.DEBIT),
     _credit: parseMoney(r.CREDIT),
-    _iso: toISO(r["TXN DATE"]),
+    _iso: toISO(r.TXN_DATE),
   }));
   switch (sortBy) {
     case "largestCredit":
@@ -275,12 +271,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }
 
     // If we cannot parse any date at all → don't filter by date
-    const anyISO = raw.some((r) => !!toISO(r["TXN DATE"]));
+    const anyISO = raw.some((r) => !!toISO(r.TXN_DATE));
     const base = !anyISO
       ? raw
       : raw.filter((r) => {
           if (!from && !to) return true;
-          const iso = toISO(r["TXN DATE"]);
+          const iso = toISO(r.TXN_DATE);
           if (!iso) return false;
           if (from && iso < from) return false;
           if (to && iso > to) return false;
@@ -308,7 +304,10 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     };
 
     // Buckets
-    const map = new Map<string, { debit: number; credit: number; rows: number }>();
+    const map = new Map<
+      string,
+      { debit: number; credit: number; rows: number; debitCount: number; creditCount: number }
+    >();
     const keyer =
       filters.bucket === "monthly"
         ? monthKey
@@ -319,14 +318,24 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         : () => "All";
 
     for (const r of sorted) {
-      const iso = toISO(r["TXN DATE"]);
+      const iso = toISO(r.TXN_DATE);
       const k = iso ? keyer(iso) : "All";
-      const v = map.get(k) || { debit: 0, credit: 0, rows: 0 };
-      v.debit += parseMoney(r.DEBIT);
-      v.credit += parseMoney(r.CREDIT);
+      const v = map.get(k) || { debit: 0, credit: 0, rows: 0, debitCount: 0, creditCount: 0 };
+
+      const d = parseMoney(r.DEBIT);
+      const c = parseMoney(r.CREDIT);
+
+      v.debit += d;
+      v.credit += c;
       v.rows += 1;
+
+      // Increment counts only if non-zero
+      if (d !== 0) v.debitCount += 1;
+      if (c !== 0) v.creditCount += 1;
+
       map.set(k, v);
     }
+
     const buckets = Array.from(map.entries())
       .map(([label, v]) => ({
         label,
@@ -334,6 +343,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         credit: v.credit,
         net: v.credit - v.debit,
         rows: v.rows,
+        debitCount: v.debitCount,
+        creditCount: v.creditCount,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
 
