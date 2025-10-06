@@ -49,7 +49,7 @@ export default function AnalysisSection({ className = "" }) {
 
   return (
     <section
-      className={`border border-gray-200 p-6 rounded-2xl space-y-6 bg-white/40 ${className}`}
+      className={`border border-gray-200 p-6 rounded-2xl space-y-6 bg-white/70 ${className}`}
     >
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Analysis</h1>
@@ -64,8 +64,7 @@ export default function AnalysisSection({ className = "" }) {
 
       <BucketsTable />
 
-      {/* Top 10 lists */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <SummaryTable data={topCredits} title="credit" property="CREDIT" />
         <SummaryTable data={topDebits} title="debit" property="DEBIT" />
       </div>

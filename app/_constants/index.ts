@@ -1,31 +1,3 @@
-export const FIELD_MAPPINGS = {
-  TXN_DATE: [
-    "txn date",
-    "trans date",
-    "transaction date",
-    "date",
-    "post date",
-    "posted date",
-    "trans. date",
-  ],
-  VAL_DATE: ["val date", "value date", "effective date", "value. date", "valuedate", "date"],
-  REFERENCE: ["reference", "ref", "transaction id", "txn id", "ref. number", "reference number"],
-  REMARKS: ["remarks", "description", "narration", "comment", "transaction details", "details"],
-  DEBIT: ["debit", "withdrawal", "dr", "withdrawal(DR)", "debits", "money out", "debit (NGN)"],
-  CREDIT: [
-    "credit",
-    "deposit",
-    "cr",
-    "deposit(CR)",
-    "credits",
-    "money in",
-    "credit(₦)",
-    "credit (NGN)",
-  ],
-  BALANCE: ["balance", "bal", "account balance", " balance(₦)", "balance (NGN)"],
-  AMOUNT: ["amount", "txn amount", "transaction amount", "balance(₦)"],
-};
-
 export const banksList = [
   { value: "access", label: "Access Bank" },
   { value: "alternative", label: "The Alternative Bank" },
@@ -36,9 +8,9 @@ export const banksList = [
   { value: "globus", label: "Globus Bank" },
   { value: "jaiz", label: "JAIZ Bank" },
   { value: "lotus", label: "Lotus Bank" },
-  { value: "moniepoint", label: "Moniepoint MFB" },
+  // { value: "moniepoint", label: "Moniepoint MFB" },
   { value: "nomba", label: "Nomba Bank" },
-  { value: "opay", label: "Opay MFB" },
+  // { value: "opay", label: "Opay MFB" },
   // { value: "palmpay", label: "Palmpay MFB" },
   { value: "polaris", label: "Polaris Bank" },
   { value: "providus", label: "Providus Bank" },

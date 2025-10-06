@@ -17,4 +17,4 @@ export interface ParsedRow {
   "Check 2": string;
 }
 
-export type Tab = "table" | "analysis";
+export type Tab = "table" | "analysis" | "metadata";
