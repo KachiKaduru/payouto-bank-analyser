@@ -2,10 +2,8 @@ import { useAnalysisStore } from "@/app/_store/useAnalysisStore";
 import { BucketMode, RangePreset, SortKey } from "@/app/_types/analysis-types";
 
 export default function FilterControls() {
-  //   const filters = useAnalysisStore((s) => s.filters);
-  //   const setFilters = useAnalysisStore((s) => s.setFilters);
-
-  const { filters, setFilters } = useAnalysisStore();
+  const filters = useAnalysisStore((s) => s.filters);
+  const setFilters = useAnalysisStore((s) => s.setFilters);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -13,7 +11,7 @@ export default function FilterControls() {
       <label className="text-sm">
         <span className="block text-gray-600 mb-1">Range</span>
         <select
-          className="w-full border rounded-xl px-3 py-2"
+          className="w-full border border-gray-400 rounded-lg px-3 py-2"
           value={filters.preset}
           onChange={(e) => setFilters({ preset: e.target.value as RangePreset })}
         >
@@ -31,7 +29,7 @@ export default function FilterControls() {
             <span className="block text-gray-600 mb-1">From</span>
             <input
               type="date"
-              className="w-full border rounded-xl px-3 py-2"
+              className="w-full border border-gray-400 rounded-lg px-3 py-2"
               value={filters.customFrom || ""}
               onChange={(e) => setFilters({ customFrom: e.target.value })}
             />
@@ -40,7 +38,7 @@ export default function FilterControls() {
             <span className="block text-gray-600 mb-1">To</span>
             <input
               type="date"
-              className="w-full border rounded-xl px-3 py-2"
+              className="w-full border border-gray-400 rounded-lg px-3 py-2"
               value={filters.customTo || ""}
               onChange={(e) => setFilters({ customTo: e.target.value })}
             />
@@ -52,7 +50,7 @@ export default function FilterControls() {
       <label className="text-sm">
         <span className="block text-gray-600 mb-1">Bucket</span>
         <select
-          className="w-full border rounded-xl px-3 py-2"
+          className="w-full border border-gray-400 rounded-lg px-3 py-2"
           value={filters.bucket}
           onChange={(e) => setFilters({ bucket: e.target.value as BucketMode })}
         >
@@ -67,7 +65,7 @@ export default function FilterControls() {
       <label className="text-sm">
         <span className="block text-gray-600 mb-1">Sort</span>
         <select
-          className="w-full border rounded-xl px-3 py-2"
+          className="w-full border border-gray-400 rounded-lg px-3 py-2"
           value={filters.sortBy}
           onChange={(e) => setFilters({ sortBy: e.target.value as SortKey })}
         >
@@ -85,7 +83,7 @@ export default function FilterControls() {
         <input
           type="text"
           placeholder="e.g. levy, airtime, loan, POS, transfer to..."
-          className="w-full border rounded-xl px-3 py-2"
+          className="w-full border border-gray-400 rounded-lg px-3 py-2"
           value={filters.search}
           onChange={(e) => setFilters({ search: e.target.value })}
         />

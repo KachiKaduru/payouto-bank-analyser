@@ -7,7 +7,7 @@ function Table() {
   if (data.length <= 0) return null;
 
   return (
-    <section className="overflow-auto border border-gray-200 shadow-md w-full">
+    <section className="overflow-auto border border-gray-200 shadow-md w-full max-h-[80dvh]">
       <table className="min-w-[1000px] text-sm border-collapse w-full">
         <thead className="bg-blue-100 sticky top-0 z-10">
           <tr>

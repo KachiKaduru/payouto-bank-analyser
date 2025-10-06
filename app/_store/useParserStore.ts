@@ -12,6 +12,7 @@ interface ParserState {
   showPasswordInput: boolean;
 
   activeTab: Tab;
+  viewFailedRows: boolean;
 
   // actions
   setFile: (file: File | null) => void;
@@ -24,6 +25,7 @@ interface ParserState {
   reset: () => void;
 
   setActiveTab: (tab: Tab) => void;
+  setViewFailedRows: (view: boolean) => void;
 }
 
 export const useParserStore = create<ParserState>((set) => ({
@@ -35,6 +37,7 @@ export const useParserStore = create<ParserState>((set) => ({
   password: "",
   showPasswordInput: false,
   activeTab: "table",
+  viewFailedRows: false,
 
   setFile: (file) => set({ file }),
   setBank: (bank) => set({ bank }),
@@ -56,4 +59,5 @@ export const useParserStore = create<ParserState>((set) => ({
     }),
 
   setActiveTab: (tab: Tab) => set({ activeTab: tab }),
+  setViewFailedRows: (view) => set({ viewFailedRows: view }),
 }));

@@ -1,10 +1,17 @@
 import { useMemo } from "react";
 import { useParserStore } from "../../_store/useParserStore";
 import ExportExcelButton from "./ExportExcelButton";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 export default function Stats() {
   const data = useParserStore((s) => s.data);
+  const viewFailedRows = useParserStore((s) => s.viewFailedRows);
+  const setViewFailedRows = useParserStore((s) => s.setViewFailedRows);
   const noOfErrorRows = useMemo(() => data.filter((row) => row.Check === "FALSE").length, [data]);
+
+  function handleFailedRowsDisplay() {
+    setViewFailedRows(!viewFailedRows);
+  }
 
   if (data.length <= 0) return null;
 
@@ -26,6 +33,19 @@ export default function Stats() {
           Failed Rows: {noOfErrorRows}
         </div>
 
+        {noOfErrorRows > 0 && (
+          <button
+            onClick={handleFailedRowsDisplay}
+            className="p-2 font-semibold bg-gray-200 flex gap-2 items-center rounded-xl"
+          >
+            {viewFailedRows ? (
+              <EyeSlashIcon className="w-5 h-5" />
+            ) : (
+              <EyeIcon className="w-5 h-5" />
+            )}
+            <p>View {viewFailedRows ? "All" : "Failed"} Rows</p>
+          </button>
+        )}
         <ExportExcelButton />
       </div>
     </section>

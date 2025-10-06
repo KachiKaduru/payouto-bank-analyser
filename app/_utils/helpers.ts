@@ -92,7 +92,7 @@ export function formatNaira(amount: number | string): string {
   return num.toLocaleString("en-NG", {
     style: "currency",
     currency: "NGN",
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
   });
 }
 
@@ -146,4 +146,18 @@ export function formatMonthYear(period: string): string {
 
   // Fallback: return as-is
   return cleaned;
+}
+
+export function formatFullDate(dateStr: string): string {
+  if (!dateStr) return "";
+
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "";
+
+  // Format like "01 Mar, 2025"
+  const day = date.toLocaleDateString("en-NG", { day: "2-digit" });
+  const month = date.toLocaleDateString("en-NG", { month: "short" });
+  const year = date.getFullYear();
+
+  return `${day} ${month}, ${year}`;
 }
