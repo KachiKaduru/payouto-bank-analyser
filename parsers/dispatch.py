@@ -2,12 +2,12 @@ import sys
 import json
 import argparse
 import os
-import tempfile
 from typing import List, Dict, Callable
 import importlib
-from PyPDF2 import PdfReader, PdfWriter
+
 from validator import is_valid_parse
 from main_parser import main_parse
+from utils import decrypt_pdf
 
 
 def dispatch_parse(
@@ -17,28 +17,12 @@ def dispatch_parse(
         raise ValueError("Bank must be specified via --bank.")
 
     # Determine the path to use (original or decrypted temp file)
-    effective_path = pdf_path
     temp_file_path = None
+    effective_path = pdf_path
 
     try:
         # Check if PDF is encrypted and decrypt if necessary
-        reader = PdfReader(pdf_path)
-        if reader.is_encrypted:
-            if not password:
-                raise ValueError("Encrypted PDF detected. Please provide a password.")
-            reader.decrypt(password)
-            print("PDF decrypted successfully.")
-            # Create a temporary file for the decrypted PDF
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-                writer = PdfWriter()
-                for page in reader.pages:
-                    writer.add_page(page)
-                writer.write(temp_file)
-                temp_file_path = temp_file.name
-                effective_path = temp_file_path
-
-        else:
-            print("PDF is not encrypted.")
+        temp_file_path, effective_path = decrypt_pdf(pdf_path, password)
 
         # Proceed with parsing using the effective path
         try:

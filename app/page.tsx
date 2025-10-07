@@ -5,7 +5,6 @@ import UploadForm from "./_components/UploadForm";
 import ErrorSection from "./_components/ErrorSection";
 import Tabs from "./_components/Tabs";
 import DisplayDataSection from "./_components/DisplayDataSection";
-// import LoadingSpinner from "./_components/_ui/LoadingSpinner";
 
 export default function Home() {
   return (
@@ -16,8 +15,6 @@ export default function Home() {
         <ErrorSection />
 
         <Tabs />
-
-        {/* <LoadingSpinner /> */}
 
         <DisplayDataSection />
       </section>
