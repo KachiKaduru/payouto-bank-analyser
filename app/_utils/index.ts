@@ -1,54 +1,72 @@
-import { ParsedRow } from "../_types";
-
-export function parseOutput(output: string): ParsedRow[] {
+// app/_utils.ts
+/**
+ * Safely parse JSON from mixed stdout that may contain logs before/after.
+ * Works for both objects and arrays. Generic so callers can assert shape.
+ */
+export function parseOutput<T = unknown>(output: string): T {
   try {
-    // Find the first "[" and last "]" in the string (JSON array boundaries)
-    const startIndex = output.indexOf("[");
-    const endIndex = output.lastIndexOf("]") + 1;
-
-    // If brackets are missing, return empty array
-    if (startIndex === -1 || endIndex === 0) {
-      console.warn("No valid JSON array found in output");
-      return [];
+    // Find first JSON opener
+    const objStart = output.indexOf("{");
+    const arrStart = output.indexOf("[");
+    if (objStart === -1 && arrStart === -1) {
+      throw new Error("No JSON start token found in output");
     }
 
-    const jsonPart = output.slice(startIndex, endIndex);
+    // Prefer object if it appears earlier (our parser returns an object)
+    const start = objStart !== -1 && (arrStart === -1 || objStart < arrStart) ? objStart : arrStart;
+    // const opener = output[start];
 
-    const parsedData = JSON.parse(jsonPart);
+    // Find the matching closer by scanning and tracking braces/brackets
+    let depth = 0;
+    let end = -1;
+    for (let i = start; i < output.length; i++) {
+      const ch = output[i];
+      if (ch === "{") depth += 1;
+      if (ch === "}") depth -= 1;
+      if (ch === "[") depth += 1;
+      if (ch === "]") depth -= 1;
+      if (depth === 0 && (ch === "}" || ch === "]")) {
+        end = i + 1;
+        break;
+      }
+    }
 
-    return parsedData;
+    if (end === -1) {
+      throw new Error("Could not find end of JSON payload");
+    }
+
+    const jsonSlice = output.slice(start, end);
+    return JSON.parse(jsonSlice) as T;
   } catch (err) {
-    console.error("Failed to parse output:", err, "Output:", output);
-    return [];
+    // Last resort: try plain JSON.parse on whole string
+    try {
+      return JSON.parse(output) as T;
+    } catch {
+      console.error("Failed to parse output:", err, "Output:", output);
+      throw err;
+    }
   }
 }
 
-// JUST IN CASE THE FIRST ONE EVER FAILS, WE CAN TRY THIS ONE OUT AND SEE
-// export function parseOutput2(output: string): ParsedRow[] {
+// import { ParsedRow } from "../_types";
+
+// export function parseOutput(output: string): ParsedRow[] {
 //   try {
-//     // Clean the output by removing lines before the first [
-//     const lines = output.split("\n");
-//     let jsonStart = -1;
-//     for (let i = 0; i < lines.length; i++) {
-//       if (lines[i].trim().startsWith("[")) {
-//         jsonStart = i;
-//         break;
-//       }
-//     }
-//     const jsonString = jsonStart >= 0 ? lines.slice(jsonStart).join("\n") : output;
+//     // Find the first "[" and last "]" in the string (JSON array boundaries)
+//     const startIndex = output.indexOf("[");
+//     const endIndex = output.lastIndexOf("]") + 1;
 
-//     // Find the first "[" and last "]"
-//     const startIndex = jsonString.indexOf("[");
-//     const endIndex = jsonString.lastIndexOf("]") + 1;
-
+//     // If brackets are missing, return empty array
 //     if (startIndex === -1 || endIndex === 0) {
 //       console.warn("No valid JSON array found in output");
 //       return [];
 //     }
 
-//     const jsonPart = jsonString.slice(startIndex, endIndex);
+//     const jsonPart = output.slice(startIndex, endIndex);
+
 //     const parsedData = JSON.parse(jsonPart);
-//     return Array.isArray(parsedData) ? parsedData : [];
+
+//     return parsedData;
 //   } catch (err) {
 //     console.error("Failed to parse output:", err, "Output:", output);
 //     return [];

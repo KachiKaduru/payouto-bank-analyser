@@ -1,6 +1,5 @@
 import { useDropzone } from "react-dropzone";
 import { useParserStore } from "../_store/useParserStore";
-import type { ParseResponse } from "../_types";
 
 export function useUploadHandler() {
   const {
@@ -10,8 +9,6 @@ export function useUploadHandler() {
     showPasswordInput,
     setFile,
     setData,
-    setMeta,
-    setChecks,
     setError,
     setLoading,
     setShowPasswordInput,
@@ -58,23 +55,18 @@ export function useUploadHandler() {
         body: formData,
       });
 
-      const json = (await res.json()) as ParseResponse | { error?: string };
+      const result = await res.json();
 
       if (!res.ok) {
-        const errMsg = (json as any)?.error || "Failed to parse file. Unknown error.";
-        if (typeof errMsg === "string" && errMsg.includes("Please provide a password")) {
+        if (result.error.includes("Please provide a password")) {
           setShowPasswordInput(true);
-          setError(errMsg);
+          setError(result.error);
         } else {
-          throw new Error(errMsg);
+          throw new Error(result.error || "Failed to parse file.");
         }
-        return;
+      } else {
+        setData(result || []);
       }
-
-      const data = json as ParseResponse;
-      setData(data.transactions || []);
-      setMeta(data.meta || null);
-      setChecks(data.checks || []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

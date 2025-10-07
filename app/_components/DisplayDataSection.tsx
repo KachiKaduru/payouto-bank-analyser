@@ -1,6 +1,7 @@
 import { useParserStore } from "../_store/useParserStore";
 import AnalysisSection from "./analysis/AnalysisSection";
 import MetadataSection from "./metadata/MetadataSection";
+import ResultsSection from "./results/ResultsSection";
 import TableSection from "./table/TableSection";
 
 export default function DisplayDataSection() {
@@ -13,6 +14,8 @@ export default function DisplayDataSection() {
       return <TableSection />;
     case "metadata":
       return <MetadataSection />;
+    case "results":
+      return <ResultsSection />;
     default:
       return null;
   }

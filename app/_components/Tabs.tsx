@@ -10,7 +10,7 @@ export default function Tabs() {
   const activeTab = useParserStore((s) => s.activeTab);
   const setActiveTab = useParserStore((s) => s.setActiveTab);
 
-  const tabs: Tab[] = ["table", "analysis", "metadata"];
+  const tabs: Tab[] = ["table", "metadata", "analysis", "results"];
   const activeIndex = tabs.indexOf(activeTab);
 
   return (
