@@ -53,6 +53,7 @@ FIELD_MAPPINGS = {
         "chq\nno",
         "chq no",
         "channel",
+        "DOC NO.",
     ],
     "REMARKS": [
         "remarks",
@@ -68,6 +69,7 @@ FIELD_MAPPINGS = {
         "descr",
         "REMARKS",
         "description/payee/memo",
+        "TRANSACCTNAMION DESC",
     ],
     "DEBIT": [
         "dr",
