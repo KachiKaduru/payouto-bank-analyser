@@ -4,55 +4,43 @@ import { useParserStore } from "../_store/useParserStore";
 import { motion } from "framer-motion";
 import { Tab } from "../_types";
 
-const buttonStyles = "px-6 py-3 font-medium transition w-full relative z-10";
-
 export default function Tabs() {
   const activeTab = useParserStore((s) => s.activeTab);
   const setActiveTab = useParserStore((s) => s.setActiveTab);
 
-  const tabs: Tab[] = ["table", "analysis", "metadata"];
+  const tabs: Tab[] = ["table", "metadata", "analysis", "results"];
   const activeIndex = tabs.indexOf(activeTab);
 
   return (
-    <div className="flex my-6 bg-gray-200/20 p-1">
-      <div className="relative flex w-full overflow-hidden">
-        {/* Sliding indicator */}
+    <section className="my-6 border-b border-gray-200">
+      <div className="flex justify-around relative">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`relative px-4 py-3 font-medium capitalize transition-colors duration-200 ${
+                isActive ? "text-blue-700" : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              {tab}
+            </button>
+          );
+        })}
+
+        {/* Active underline */}
         <motion.div
-          className="absolute left-0 bottom-0 h-1.5 bg-blue-600 rounded-full"
+          className="absolute bottom-0 left-0 h-[4px] bg-blue-600 rounded-full"
           style={{ width: `${100 / tabs.length}%` }}
           animate={{ x: `${100 * activeIndex}%` }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={{
+            type: "spring",
+            stiffness: 300,
+            damping: 30,
+          }}
         />
-
-        {/* Tab Buttons */}
-        {tabs.map((tab) => (
-          <TabButton
-            key={tab}
-            tab={tab}
-            isActive={activeTab === tab}
-            handleTabChange={setActiveTab}
-          />
-        ))}
       </div>
-    </div>
-  );
-}
-
-function TabButton({
-  tab,
-  isActive,
-  handleTabChange,
-}: {
-  tab: Tab;
-  isActive: boolean;
-  handleTabChange: (tab: Tab) => void;
-}) {
-  return (
-    <button
-      onClick={() => handleTabChange(tab)}
-      className={`${buttonStyles} ${isActive ? "text-blue-800" : "text-gray-700"}`}
-    >
-      {tab.charAt(0).toUpperCase() + tab.slice(1)}
-    </button>
+    </section>
   );
 }

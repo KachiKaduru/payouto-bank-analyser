@@ -1,6 +1,6 @@
 // app/_store/useParserStore.ts
 import { create } from "zustand";
-import { ParsedRow, Tab } from "../_types";
+import { LegitimacyCheck, ParsedRow, StatementMeta, Tab } from "../_types";
 
 interface ParserState {
   file: File | null;
@@ -10,6 +10,9 @@ interface ParserState {
   error: string;
   password: string;
   showPasswordInput: boolean;
+
+  meta: StatementMeta | null;
+  checks: LegitimacyCheck[];
 
   activeTab: Tab;
   viewFailedRows: boolean;
@@ -23,6 +26,10 @@ interface ParserState {
   setPassword: (password: string) => void;
   setShowPasswordInput: (show: boolean) => void;
   reset: () => void;
+
+  // NEW:
+  setMeta: (m: StatementMeta | null) => void;
+  setChecks: (c: LegitimacyCheck[]) => void;
 
   setActiveTab: (tab: Tab) => void;
   setViewFailedRows: (view: boolean) => void;
@@ -39,6 +46,10 @@ export const useParserStore = create<ParserState>((set) => ({
   activeTab: "table",
   viewFailedRows: false,
 
+  // NEW:
+  meta: null,
+  checks: [],
+
   setFile: (file) => set({ file }),
   setBank: (bank) => set({ bank }),
   setData: (data) => set({ data }),
@@ -46,6 +57,9 @@ export const useParserStore = create<ParserState>((set) => ({
   setError: (error) => set({ error }),
   setPassword: (password) => set({ password }),
   setShowPasswordInput: (show) => set({ showPasswordInput: show }),
+
+  setMeta: (m) => set({ meta: m }),
+  setChecks: (c) => set({ checks: c }),
 
   reset: () =>
     set({

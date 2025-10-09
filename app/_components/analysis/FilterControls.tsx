@@ -1,17 +1,45 @@
 import { useAnalysisStore } from "@/app/_store/useAnalysisStore";
+import {
+  FunnelIcon,
+  ClockIcon,
+  ArrowDownTrayIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 import { BucketMode, RangePreset, SortKey } from "@/app/_types/analysis-types";
+
+const controlClasses =
+  "w-full border border-gray-300 bg-white rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none transition text-sm";
+
+function ControlWrapper({
+  label,
+  icon,
+  children,
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="text-sm flex flex-col gap-1">
+      <span className="text-gray-600 flex items-center gap-1">
+        {icon && <span className="text-blue-600">{icon}</span>}
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
 
 export default function FilterControls() {
   const filters = useAnalysisStore((s) => s.filters);
   const setFilters = useAnalysisStore((s) => s.setFilters);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
-      {/* Preset */}
-      <label className="text-sm">
-        <span className="block text-gray-600 mb-1">Range</span>
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 bg-white p-4 rounded-2xl shadow-inner border border-blue-100">
+      {/* Range */}
+      <ControlWrapper label="Range" icon={<ClockIcon className="w-4 h-4" />}>
         <select
-          className="w-full border border-gray-400 rounded-lg px-3 py-2"
+          className={controlClasses}
           value={filters.preset}
           onChange={(e) => setFilters({ preset: e.target.value as RangePreset })}
         >
@@ -21,36 +49,33 @@ export default function FilterControls() {
           <option value="all">All</option>
           <option value="custom">Custom…</option>
         </select>
-      </label>
+      </ControlWrapper>
 
       {filters.preset === "custom" && (
         <>
-          <label className="text-sm">
-            <span className="block text-gray-600 mb-1">From</span>
+          <ControlWrapper label="From">
             <input
               type="date"
-              className="w-full border border-gray-400 rounded-lg px-3 py-2"
+              className={controlClasses}
               value={filters.customFrom || ""}
               onChange={(e) => setFilters({ customFrom: e.target.value })}
             />
-          </label>
-          <label className="text-sm">
-            <span className="block text-gray-600 mb-1">To</span>
+          </ControlWrapper>
+          <ControlWrapper label="To">
             <input
               type="date"
-              className="w-full border border-gray-400 rounded-lg px-3 py-2"
+              className={controlClasses}
               value={filters.customTo || ""}
               onChange={(e) => setFilters({ customTo: e.target.value })}
             />
-          </label>
+          </ControlWrapper>
         </>
       )}
 
-      {/* Buckets */}
-      <label className="text-sm">
-        <span className="block text-gray-600 mb-1">Bucket</span>
+      {/* Bucket */}
+      <ControlWrapper label="Bucket" icon={<FunnelIcon className="w-4 h-4" />}>
         <select
-          className="w-full border border-gray-400 rounded-lg px-3 py-2"
+          className={controlClasses}
           value={filters.bucket}
           onChange={(e) => setFilters({ bucket: e.target.value as BucketMode })}
         >
@@ -59,13 +84,12 @@ export default function FilterControls() {
           <option value="quarterly">Quarterly</option>
           <option value="none">None</option>
         </select>
-      </label>
+      </ControlWrapper>
 
       {/* Sort */}
-      <label className="text-sm">
-        <span className="block text-gray-600 mb-1">Sort</span>
+      <ControlWrapper label="Sort By" icon={<ArrowDownTrayIcon className="w-4 h-4" />}>
         <select
-          className="w-full border border-gray-400 rounded-lg px-3 py-2"
+          className={controlClasses}
           value={filters.sortBy}
           onChange={(e) => setFilters({ sortBy: e.target.value as SortKey })}
         >
@@ -75,19 +99,18 @@ export default function FilterControls() {
           <option value="txnDateAsc">Oldest first</option>
           <option value="txnDateDesc">Newest first</option>
         </select>
-      </label>
+      </ControlWrapper>
 
       {/* Search */}
-      <label className="text-sm md:col-span-2 lg:col-span-2">
-        <span className="block text-gray-600 mb-1">Search (REMARKS / REFERENCE)</span>
+      <ControlWrapper label="Search" icon={<MagnifyingGlassIcon className="w-4 h-4" />}>
         <input
           type="text"
-          placeholder="e.g. levy, airtime, loan, POS, transfer to..."
-          className="w-full border border-gray-400 rounded-lg px-3 py-2"
+          placeholder="e.g. levy, airtime, POS..."
+          className={controlClasses}
           value={filters.search}
           onChange={(e) => setFilters({ search: e.target.value })}
         />
-      </label>
+      </ControlWrapper>
     </div>
   );
 }

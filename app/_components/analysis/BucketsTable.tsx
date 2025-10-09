@@ -7,7 +7,7 @@ export default function BucketsTable() {
   return (
     <div className="rounded-2xl border border-gray-300 overflow-x-auto tracking-wide">
       <table className="min-w-full text-sm">
-        <thead className="bg-gray-100 text-gray-700">
+        <thead className="bg-blue-50 text-blue-800 font-semibold text-sm">
           <tr>
             <th className="text-left px-4 py-3">Bucket</th>
             <th className="text-center px-4 py-3">Credit</th>
@@ -18,7 +18,7 @@ export default function BucketsTable() {
             <th className="text-center px-4 py-3">Rows</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="text-gray-700 text-sm">
           {buckets.map((b) => (
             <tr key={b.label} className="border-t border-gray-300 hover:bg-gray-50">
               <td className="px-4 py-3">{formatMonthYear(b.label)}</td>

@@ -3,22 +3,24 @@ import { writeFile, unlink } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import { spawnSync } from "child_process";
-import type { ParseResponse } from "../../_types";
+import { ParsedRow } from "../../_types";
 import { parseOutput } from "@/app/_utils";
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const bank = formData.get("bank") as string; // required
-    const password = (formData.get("password") as string) || ""; // optional
+    const bank = formData.get("bank") as string; // Get bank from dropdown
+    const password = formData.get("password") as string | null; // Optional password
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
+
     if (!bank) {
       return NextResponse.json({ error: "No bank selected" }, { status: 400 });
     }
+
     if (file.type !== "application/pdf") {
       return NextResponse.json(
         { error: "Invalid file type. Please upload a PDF." },
@@ -26,16 +28,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Save to temp
-    const buffer = Buffer.from(await file.arrayBuffer());
+    // Write PDF to temporary file
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     const tempPath = join(tmpdir(), `${Date.now()}_${file.name}`);
     await writeFile(tempPath, buffer);
 
     try {
-      // Run the Python dispatch (returns { meta, transactions, checks })
-      const projectRoot = process.cwd();
+      // Run Python dispatch script with absolute path and correct cwd
+      const projectRoot = process.cwd(); // Should be the root of your Next.js project
       const dispatchPath = join(projectRoot, "parsers", "dispatch.py");
-
       const result = spawnSync(
         "python",
         [
@@ -43,25 +45,26 @@ export async function POST(req: NextRequest) {
           tempPath,
           "--bank",
           bank.toLowerCase(),
-          ...(password ? ["--password", password] : []),
+          ...(password ? ["--password", password] : []), // Include password if provided
         ],
         {
           encoding: "utf-8",
           stdio: ["pipe", "pipe", "pipe"],
-          maxBuffer: 50 * 1024 * 1024,
+          maxBuffer: 50 * 1024 * 1024, // Increase buffer to 50MB
         }
       );
 
       if (result.error) {
         console.error("Python execution error:", result.error);
         return NextResponse.json(
-          { error: `Failed to execute Python script: ${result.error.message}` },
+          { error: "Failed to execute Python script: " + result.error.message },
           { status: 500 }
         );
       }
 
       if (result.status !== 0) {
         console.error("Python script stderr:", result.stderr);
+        // Check if the error is due to missing password
         if (result.stderr.includes("Please provide a password")) {
           return NextResponse.json(
             { error: "Encrypted PDF detected. Please provide a password." },
@@ -69,52 +72,33 @@ export async function POST(req: NextRequest) {
           );
         }
         return NextResponse.json(
-          { error: `Python script failed: ${result.stderr}` },
+          { error: "Python script failed: " + result.stderr },
           { status: 500 }
         );
       }
 
-      // Parse stdout as a ParseResponse
-      const output = result.stdout || "{}";
-      let jsonData: ParseResponse;
+      // Parse Python output
+      const output = result.stdout || "[]";
+      let jsonData: ParsedRow[];
       try {
-        jsonData = parseOutput<ParseResponse>(output);
+        jsonData = parseOutput(output);
       } catch (err) {
         console.error("JSON parse error:", err, "Output:", output);
         return NextResponse.json(
-          { error: "Invalid data returned from parser", details: String(err) },
+          { error: "Invalid data returned from parser", details: err, output: output },
           { status: 500 }
         );
-      }
-
-      // Very light validation
-      if (
-        !jsonData ||
-        !("transactions" in jsonData) ||
-        !("meta" in jsonData) ||
-        !("checks" in jsonData)
-      ) {
-        return NextResponse.json({ error: "Parser returned unexpected shape." }, { status: 500 });
       }
 
       return NextResponse.json(jsonData, { status: 200 });
     } finally {
-      try {
-        // Only attempt to delete if it still exists
-        await unlink(tempPath);
-      } catch (err: any) {
-        // Ignore "no such file" — it was already cleaned up
-        if (err?.code !== "ENOENT") {
-          console.error("Failed to delete temp file:", err);
-        }
-      }
+      // Clean up temporary file
+      await unlink(tempPath).catch((err) => console.error("Failed to delete temp file:", err));
     }
   } catch (err: unknown) {
     console.error("API error:", err);
     return NextResponse.json(
-      {
-        error: "Failed to parse PDF: " + (err instanceof Error ? err.message : String(err)),
-      },
+      { error: "Failed to parse PDF: " + (err instanceof Error ? err.message : String(err)) },
       { status: 500 }
     );
   }

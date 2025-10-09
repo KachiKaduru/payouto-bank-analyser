@@ -9,28 +9,32 @@ import type { RowComponentProps } from "react-window";
 type RowPropsCtx = { rows: ParsedRow[] };
 
 const ROW_HEIGHT = 44;
-const gridCols = "grid grid-cols-[120px_120px_130px_1fr_130px_130px_130px_70px_80px]";
-const tableBorders = "divide-x divide-gray-500";
+const gridCols = "grid grid-cols-[120px_120px_130px_1fr_130px_120px_120px_70px_100px]";
+const tableBorders = "divide-x divide-gray-200";
 
 const Cell = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
   <div
-    className={`p-3 truncate ${className}`}
+    className={`px-3 py-2 truncate ${className}`}
     title={typeof children === "string" ? children : undefined}
   >
     {children}
   </div>
 );
 
-// Row component (v2 API passes rowProps directly into the row)
 const RowComponent = memo(
   function RowComponent({ index, style, rows }: RowComponentProps<RowPropsCtx>) {
     const r = rows[index];
+    const failed = r.Check === "FALSE";
     return (
       <div
         style={style}
-        className={`${gridCols} border-b border-gray-500 ${tableBorders} hover:bg-gray-50 ${
-          r.Check === "FALSE" ? "bg-red-100" : index % 2 === 0 ? "bg-white" : "bg-gray-100"
-        }`}
+        className={`${gridCols} border-b border-gray-100 ${tableBorders} ${
+          failed
+            ? "bg-red-50 hover:bg-red-100/70"
+            : index % 2 === 0
+            ? "bg-white hover:bg-blue-50/50"
+            : "bg-gray-50 hover:bg-blue-50/50"
+        } transition-colors`}
       >
         <Cell>{r.TXN_DATE}</Cell>
         <Cell>{r.VAL_DATE}</Cell>
@@ -48,14 +52,13 @@ const RowComponent = memo(
 );
 
 export default function VirtualizedTable({ rows }: { rows: ParsedRow[] }) {
-  // keep a stable reference to avoid re-rendering all rows
   const rowProps = useMemo<RowPropsCtx>(() => ({ rows }), [rows]);
 
   return (
-    <div className="rounded-2xl border overflow-hidden bg-white no-scrollbar">
+    <div className="rounded-2xl border border-blue-100 overflow-hidden bg-white shadow-sm">
       {/* Header */}
       <div
-        className={`sticky top-0 z-10 bg-gray-300 border-b ${gridCols} text-sm text-gray-900 ${tableBorders} font-semibold`}
+        className={`sticky top-0 z-10 bg-blue-50 border-b border-gray-200 ${gridCols} text-sm text-blue-900 ${tableBorders} font-semibold`}
       >
         <Cell>TXN DATE</Cell>
         <Cell>VAL DATE</Cell>
@@ -68,17 +71,16 @@ export default function VirtualizedTable({ rows }: { rows: ParsedRow[] }) {
         <Cell>Check 2</Cell>
       </div>
 
-      {/* Body — List uses ResizeObserver; give it a container height */}
+      {/* Virtualized list */}
       <div style={{ height: "70dvh" }}>
-        <AutoSizer style={{ width: "100%", height: "100%" }}>
+        <AutoSizer style={{ height: "100%", width: "100%" }}>
           {({ height, width }) => (
             <List
-              className="text-sm"
+              className="text-sm text-gray-800"
               rowComponent={RowComponent}
               rowCount={rows.length}
               rowHeight={ROW_HEIGHT}
               rowProps={rowProps}
-              // optional for SSR/hydration to avoid a flash:
               defaultHeight={height}
               style={{ height, width }}
             />

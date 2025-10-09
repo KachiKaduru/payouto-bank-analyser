@@ -1,7 +1,14 @@
+"use client";
+
 import { useMemo } from "react";
 import { useParserStore } from "../../_store/useParserStore";
 import ExportExcelButton from "./ExportExcelButton";
-import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import {
+  EyeIcon,
+  EyeSlashIcon,
+  TableCellsIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 
 export default function Stats() {
   const data = useParserStore((s) => s.data);
@@ -9,45 +16,85 @@ export default function Stats() {
   const setViewFailedRows = useParserStore((s) => s.setViewFailedRows);
   const noOfErrorRows = useMemo(() => data.filter((row) => row.Check === "FALSE").length, [data]);
 
-  function handleFailedRowsDisplay() {
-    setViewFailedRows(!viewFailedRows);
-  }
-
   if (data.length <= 0) return null;
 
+  const totalRows = data.length;
+  const errorRatio = ((noOfErrorRows / totalRows) * 100).toFixed(1);
+
   return (
-    <section>
-      <div className="my-6 flex gap-6 flex-wrap">
-        <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-semibold">
-          Total Rows: {data.length}
-        </div>
-        <div
-          className={`px-4 py-2 rounded-lg font-semibold ${
+    <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-5 flex flex-wrap items-center gap-4 justify-between">
+      {/* Stats badges */}
+      <div className="flex flex-wrap gap-3">
+        <StatBadge
+          icon={<TableCellsIcon className="w-5 h-5 text-blue-600" />}
+          label="Total Rows"
+          value={totalRows.toLocaleString()}
+          color="text-blue-800"
+          bg="bg-blue-100"
+        />
+
+        <StatBadge
+          icon={<ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />}
+          label="Failed Rows"
+          value={`${noOfErrorRows} (${errorRatio}%)`}
+          color={
             noOfErrorRows > 0
               ? noOfErrorRows < 10
-                ? "bg-amber-100 text-amber-800"
-                : "bg-red-100 text-red-800"
-              : "bg-green-100 text-green-800"
-          }`}
-        >
-          Failed Rows: {noOfErrorRows}
-        </div>
+                ? "text-amber-700"
+                : "text-red-700"
+              : "text-green-700"
+          }
+          bg={
+            noOfErrorRows > 0 ? (noOfErrorRows < 10 ? "bg-amber-50" : "bg-red-50") : "bg-green-50"
+          }
+        />
+      </div>
 
+      {/* Actions */}
+      <div className="flex items-center gap-3">
         {noOfErrorRows > 0 && (
           <button
-            onClick={handleFailedRowsDisplay}
-            className="p-2 font-semibold bg-gray-200 flex gap-2 items-center rounded-xl"
+            onClick={() => setViewFailedRows(!viewFailedRows)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 font-medium text-gray-800 transition"
           >
             {viewFailedRows ? (
               <EyeSlashIcon className="w-5 h-5" />
             ) : (
               <EyeIcon className="w-5 h-5" />
             )}
-            <p>View {viewFailedRows ? "All" : "Failed"} Rows</p>
+            {viewFailedRows ? "View All Rows" : "View Failed Rows"}
           </button>
         )}
+
         <ExportExcelButton />
       </div>
-    </section>
+    </div>
+  );
+}
+
+/* Small subcomponent for reusable stat badge */
+function StatBadge({
+  icon,
+  label,
+  value,
+  color,
+  bg,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  color?: string;
+  bg?: string;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 ${bg} ${color} text-sm font-semibold`}
+    >
+      {icon}
+      <div>
+        <span className="block text-xs text-gray-500">{label}</span>
+        <span className="text-base font-semibold">{value}</span>
+      </div>
+    </div>
   );
 }
