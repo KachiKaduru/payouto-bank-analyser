@@ -14,7 +14,7 @@ export default function SummaryTable({ data, title, property = "CREDIT" }: Summa
         Top 10 {title}s
       </div>
       <table className="min-w-full text-sm">
-        <thead className="bg-gray-100 text-gray-600">
+        <thead className="bg-blue-50 text-blue-800 font-semibold text-sm">
           <tr>
             <th className="text-left px-4 py-3">TRANSACTION DATE</th>
             <th className="text-left px-4 py-3">REMARKS</th>
@@ -22,7 +22,7 @@ export default function SummaryTable({ data, title, property = "CREDIT" }: Summa
             <th className="text-left px-4 py-3">REFERENCE</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="text-gray-700 text-sm">
           {data.map((r, i) => (
             <tr key={i} className="border-t border-gray-300 hover:bg-gray-50">
               <td className="px-4 py-3 min-w-[7.5rem]">{formatFullDate(r.TXN_DATE)}</td>

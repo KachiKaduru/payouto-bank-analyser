@@ -1,3 +1,5 @@
+"use client";
+
 import Stats from "./Stats";
 import { useParserStore } from "../../_store/useParserStore";
 import EmptyState from "../_ui/EmptyState";
@@ -20,9 +22,11 @@ export default function TableSection({ className = "" }: { className?: string })
   if (!data.length && activeTab === "table") return <EmptyState section="table" />;
 
   return (
-    <div className={`${className} space-y-6`}>
+    <section
+      className={`space-y-6 bg-gradient-to-b from-white to-blue-50 rounded-3xl shadow-sm p-6 sm:p-8 border border-blue-100 ${className}`}
+    >
       <Stats />
       <VirtualizedTable rows={displayedData} />
-    </div>
+    </section>
   );
 }

@@ -77,6 +77,9 @@ export function useUploadHandler() {
       setChecks(data.checks || []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
+      setData([]);
+      setMeta(null);
+      setChecks([]);
     } finally {
       setLoading(false);
     }
