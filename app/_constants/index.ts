@@ -8,7 +8,7 @@ export const banksList = [
   { value: "globus", label: "Globus Bank" },
   { value: "jaiz", label: "JAIZ Bank" },
   { value: "lotus", label: "Lotus Bank" },
-  // { value: "moniepoint", label: "Moniepoint MFB" },
+  { value: "moniepoint", label: "Moniepoint MFB" },
   { value: "nomba", label: "Nomba Bank" },
   // { value: "opay", label: "Opay MFB" },
   // { value: "palmpay", label: "Palmpay MFB" },

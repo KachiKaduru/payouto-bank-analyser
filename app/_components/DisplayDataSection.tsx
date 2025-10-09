@@ -7,16 +7,12 @@ import TableSection from "./table/TableSection";
 export default function DisplayDataSection() {
   const activeTab = useParserStore((s) => s.activeTab);
 
-  switch (activeTab) {
-    case "analysis":
-      return <AnalysisSection />;
-    case "table":
-      return <TableSection />;
-    case "metadata":
-      return <MetadataSection />;
-    case "results":
-      return <ResultsSection />;
-    default:
-      return null;
-  }
+  return (
+    <div className="h-full max-h-[86dvhh] overflow-auto rounded-2xl bg-white/50  border border-gray-200 p-4">
+      {activeTab === "analysis" && <AnalysisSection />}
+      {activeTab === "table" && <TableSection />}
+      {activeTab === "metadata" && <MetadataSection />}
+      {activeTab === "results" && <ResultsSection />}
+    </div>
+  );
 }

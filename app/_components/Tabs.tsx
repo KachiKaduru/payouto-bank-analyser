@@ -4,7 +4,7 @@ import { useParserStore } from "../_store/useParserStore";
 import { motion } from "framer-motion";
 import { Tab } from "../_types";
 
-const buttonStyles = "px-6 py-3 font-medium transition w-full relative z-10";
+const buttonStyles = "px-6 py-3 font-semibold text-base transition w-full relative z-10";
 
 export default function Tabs() {
   const activeTab = useParserStore((s) => s.activeTab);
@@ -14,17 +14,8 @@ export default function Tabs() {
   const activeIndex = tabs.indexOf(activeTab);
 
   return (
-    <div className="flex my-6 bg-gray-200/20 p-1">
-      <div className="relative flex w-full overflow-hidden">
-        {/* Sliding indicator */}
-        <motion.div
-          className="absolute left-0 bottom-0 h-1.5 bg-blue-600 rounded-full"
-          style={{ width: `${100 / tabs.length}%` }}
-          animate={{ x: `${100 * activeIndex}%` }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        />
-
-        {/* Tab Buttons */}
+    <section className="my-6 bg-gray-100">
+      <div className="flex">
         {tabs.map((tab) => (
           <TabButton
             key={tab}
@@ -34,7 +25,17 @@ export default function Tabs() {
           />
         ))}
       </div>
-    </div>
+
+      {/* Sliding indicator */}
+      <div className="relative w-full h-1.5 overflow-hidden">
+        <motion.div
+          className="absolute left-0 bottom-0 h-1.5 bg-blue-700 rounded-full"
+          style={{ width: `${100 / tabs.length}%` }}
+          animate={{ x: `${100 * activeIndex}%` }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -50,7 +51,7 @@ function TabButton({
   return (
     <button
       onClick={() => handleTabChange(tab)}
-      className={`${buttonStyles} ${isActive ? "text-blue-800" : "text-gray-700"}`}
+      className={`${buttonStyles} ${isActive ? "text-blue-700" : "text-gray-700"}`}
     >
       {tab.charAt(0).toUpperCase() + tab.slice(1)}
     </button>

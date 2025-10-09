@@ -3,21 +3,29 @@
 import { useParserStore } from "@/app/_store/useParserStore";
 import { formatNaira, parseMoney } from "@/app/_utils/helpers";
 import { motion } from "framer-motion";
+import EmptyState from "../_ui/EmptyState";
+import LoadingState from "../_ui/LoadingState";
 
 export default function MetadataSection() {
   const meta = useParserStore((s) => s.meta);
   const checks = useParserStore((s) => s.checks);
+  const loading = useParserStore((s) => s.loading);
+  const activeTab = useParserStore((s) => s.activeTab);
 
   console.log("Metadata:", meta);
   console.log("Legitimacy Checks:", checks);
 
-  if (!meta) return null;
+  if (loading && activeTab === "metadata") {
+    return <LoadingState currentTab="metadata" text="Fetching the data…" />;
+  }
+
+  if (!meta) return <EmptyState section="metadata" />;
 
   return (
-    <section className="mt-6 space-y-8 border border-gray-200 rounded-2xl p-5 bg-white/70">
+    <section className="space-y-8 rounded-2xl bg-white/70">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-blue-800">Statement Metadata</h1>
+        <h1 className="text-2xl font-bold text-blue-900">Statement Metadata</h1>
         <p className="text-gray-500 text-sm">
           Overview of account details, summary, and validation checks
         </p>

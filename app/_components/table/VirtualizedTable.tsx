@@ -9,7 +9,7 @@ import type { RowComponentProps } from "react-window";
 type RowPropsCtx = { rows: ParsedRow[] };
 
 const ROW_HEIGHT = 44;
-const gridCols = "grid grid-cols-[120px_120px_130px_1fr_130px_130px_130px_70px_80px]";
+const gridCols = "grid grid-cols-[120px_120px_130px_1fr_130px_120px_120px_70px_100px]";
 const tableBorders = "divide-x divide-gray-500";
 
 const Cell = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
@@ -29,7 +29,11 @@ const RowComponent = memo(
       <div
         style={style}
         className={`${gridCols} border-b border-gray-500 ${tableBorders} hover:bg-gray-50 ${
-          r.Check === "FALSE" ? "bg-red-100" : index % 2 === 0 ? "bg-white" : "bg-gray-100"
+          r.Check === "FALSE"
+            ? "bg-red-100 hover:bg-red-100"
+            : index % 2 === 0
+            ? "bg-white"
+            : "bg-gray-100"
         }`}
       >
         <Cell>{r.TXN_DATE}</Cell>

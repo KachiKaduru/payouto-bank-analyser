@@ -15,11 +15,12 @@ def dispatch_parse(
     pdf_path: str, bank: str = None, password: str = None
 ) -> Dict[str, Any]:
     """
-    Returns a single payload:
-    {
-      "meta": Dict[str, Any],
-      "transactions": List[Dict[str, str]],
-      "checks": List[Dict[str, Any]]
+    Parses a statement PDF using bank-specific or universal parsers.\n
+    Returns a single payload:\n
+    {\n
+      "meta": Dict[str, Any],\n
+      "transactions": List[Dict[str, str]],\n
+      "checks": List[Dict[str, Any]]\n
     }
     """
     if not bank:
@@ -99,7 +100,7 @@ def dispatch_parse(
             {
                 "id": "parse_quality_gate",
                 "ok": is_valid_parse(transactions),
-                "severity": "warn" if is_valid_parse(transactions) else "fail",
+                "severity": "good" if is_valid_parse(transactions) else "fail",
                 "message": "Overall parse quality threshold (table detection/normalization).",
             }
         )

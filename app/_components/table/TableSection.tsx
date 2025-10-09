@@ -1,7 +1,8 @@
 import Stats from "./Stats";
 import { useParserStore } from "../../_store/useParserStore";
-import EmptyState from "../EmptyState";
+import EmptyState from "../_ui/EmptyState";
 import VirtualizedTable from "./VirtualizedTable";
+import LoadingState from "../_ui/LoadingState";
 
 export default function TableSection({ className = "" }: { className?: string }) {
   const data = useParserStore((s) => s.data);
@@ -13,18 +14,13 @@ export default function TableSection({ className = "" }: { className?: string })
   const displayedData = viewFailedRows ? failedData : data;
 
   if (loading && activeTab === "table") {
-    return (
-      <section className="border border-gray-300 rounded-xl w-full h-full p-6 animate-pulse">
-        <h1 className="text-lg font-semibold mb-4">Table</h1>
-        <p>Parsing bank statement…</p>
-      </section>
-    );
+    return <LoadingState currentTab={activeTab} text="Parsing bank statement…" />;
   }
 
   if (!data.length && activeTab === "table") return <EmptyState section="table" />;
 
   return (
-    <div className={className}>
+    <div className={`${className} space-y-6`}>
       <Stats />
       <VirtualizedTable rows={displayedData} />
     </div>

@@ -17,7 +17,7 @@ export default function Stats() {
 
   return (
     <section>
-      <div className="my-6 flex gap-6 flex-wrap">
+      <div className="flex gap-6 flex-wrap">
         <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-semibold">
           Total Rows: {data.length}
         </div>

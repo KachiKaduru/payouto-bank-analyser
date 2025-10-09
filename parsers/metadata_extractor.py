@@ -2,6 +2,7 @@
 import re
 import pdfplumber
 from typing import Dict, Optional
+from utils import *
 
 RX_MONEY = re.compile(r"(?:₦|NGN)?\s?[-\d,]+\.\d{2}")
 RX_DATE_ISO = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
@@ -32,7 +33,8 @@ LABELS = {
         "Account Number",
         "ACCOUNT NUMBER",
         "Acct No",
-        "ACCOUNT NO",
+        "ACCOUNT NO.",
+        "Account:",
     ],
     "currency": ["Currency", "CURRENCY"],
     "account_type": ["Account Type", "ACCOUNT TYPE", "Account Class"],
@@ -42,6 +44,9 @@ LABELS = {
         "Period Covered",
         "Period:",
         "Period  :",
+        "Summary statement for",
+        "Summary statement",
+        "Summary statement\nfor",
     ],  # GTB uses "Statement Period  :"
     "start_date": ["Start Date", "From", "Period From"],
     "end_date": ["End Date", "To", "Period To"],
@@ -200,7 +205,9 @@ from typing import List
 def _is_nuban_10_digits(acct: Optional[str]) -> bool:
     if not acct:
         return False
-    return acct.isdigit() and len(acct) == 10
+    new_acct = to_float(acct)
+
+    return new_acct.is_integer() and len(acct) == 10
 
 
 def _money_to_float(s: Optional[str]) -> float:
@@ -220,9 +227,9 @@ def verify_legitimacy(
         {
             "id": "acct_nuban_format",
             "ok": ok_acct,
-            "severity": "warn" if ok_acct else "fail",
+            "severity": "good" if ok_acct else "fail",
             "message": "Account number should be 10 digits (NUBAN).",
-            "details": {"account_number": meta.get("account_number")},
+            "details": {"account_number": (meta.get("account_number"))},
         }
     )
 
@@ -232,7 +239,7 @@ def verify_legitimacy(
         {
             "id": "period_present",
             "ok": has_dates,
-            "severity": "warn" if has_dates else "fail",
+            "severity": "good" if has_dates else "fail",
             "message": "Statement period (start/end) should be present.",
             "details": {"start": meta.get("start_date"), "end": meta.get("end_date")},
         }

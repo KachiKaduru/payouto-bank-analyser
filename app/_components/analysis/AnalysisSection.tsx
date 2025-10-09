@@ -4,11 +4,12 @@ import { useEffect, useMemo } from "react";
 import { useParserStore } from "../../_store/useParserStore";
 import { useAnalysisStore } from "@/app/_store/useAnalysisStore";
 
-import EmptyState from "../EmptyState";
+import EmptyState from "../_ui/EmptyState";
 import FilterControls from "./FilterControls";
 import SummaryTiles from "./SummaryTiles";
 import BucketsTable from "./BucketsTable";
 import SummaryTable from "./SummaryTable";
+import LoadingState from "../_ui/LoadingState";
 
 export default function AnalysisSection({ className = "" }) {
   const data = useParserStore((s) => s.data);
@@ -37,20 +38,13 @@ export default function AnalysisSection({ className = "" }) {
   }, [filtered]);
 
   if (loading && activeTab === "analysis") {
-    return (
-      <section className="border border-gray-300 rounded-xl w-full h-full p-6 animate-pulse">
-        <h1 className="text-lg font-semibold mb-4">Analysis</h1>
-        <p>Crunching numbers…</p>
-      </section>
-    );
+    return <LoadingState currentTab="analysis" text="Crunching numbers…" />;
   }
 
   if (data.length === 0 && activeTab === "analysis") return <EmptyState section="analysis" />;
 
   return (
-    <section
-      className={`border border-gray-200 p-6 rounded-2xl space-y-6 bg-white/70 ${className}`}
-    >
+    <section className={` rounded-2xl space-y-6 bg-white/70 ${className}`}>
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Analysis</h1>
         <span className="text-sm text-gray-500">
