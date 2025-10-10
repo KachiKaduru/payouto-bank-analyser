@@ -1,11 +1,21 @@
 @import "tailwindcss";
 
-* {
+/* * {
   outline: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
 *::-webkit-scrollbar {
-  display: none; /* Chrome, Safari */
+  display: none;
+} */
+
+/* .show-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107, 114, 128, 1) transparent;
+  -ms-overflow-style: auto;
 }
+
+.show-scrollbar::-webkit-scrollbar {
+  display: block;
+} */

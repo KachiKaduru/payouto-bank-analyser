@@ -318,7 +318,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         : () => "All";
 
     for (const r of sorted) {
-      const iso = toISO(r.TXN_DATE);
+      const iso = toISO(r.VAL_DATE);
       const k = iso ? keyer(iso) : "All";
       const v = map.get(k) || { debit: 0, credit: 0, rows: 0, debitCount: 0, creditCount: 0 };
 
