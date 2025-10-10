@@ -9,6 +9,7 @@ import type { RowComponentProps } from "react-window";
 type RowPropsCtx = { rows: ParsedRow[] };
 
 const ROW_HEIGHT = 44;
+const gridColsHeader = "grid grid-cols-[120px_120px_130px_1fr_130px_120px_120px_70px_100px_15px]";
 const gridCols = "grid grid-cols-[120px_120px_130px_1fr_130px_120px_120px_70px_100px]";
 const tableBorders = "divide-x divide-gray-200";
 
@@ -58,7 +59,7 @@ export default function VirtualizedTable({ rows }: { rows: ParsedRow[] }) {
     <div className="rounded-2xl border border-blue-100 overflow-hidden bg-white shadow-sm">
       {/* Header */}
       <div
-        className={`sticky top-0 z-10 bg-blue-50 border-b border-gray-200 ${gridCols} text-sm text-blue-900 ${tableBorders} font-semibold`}
+        className={`sticky top-0 z-10 bg-blue-50 border-b border-gray-200 ${gridColsHeader} text-sm text-blue-900 ${tableBorders} font-semibold`}
       >
         <Cell>TXN DATE</Cell>
         <Cell>VAL DATE</Cell>
@@ -72,7 +73,7 @@ export default function VirtualizedTable({ rows }: { rows: ParsedRow[] }) {
       </div>
 
       {/* Virtualized list */}
-      <div style={{ height: "70dvh" }}>
+      <div style={{ height: "87dvh" }}>
         <AutoSizer style={{ height: "100%", width: "100%" }}>
           {({ height, width }) => (
             <List

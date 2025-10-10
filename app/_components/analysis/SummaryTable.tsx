@@ -25,7 +25,7 @@ export default function SummaryTable({ data, title, property = "CREDIT" }: Summa
         <tbody className="text-gray-700 text-sm">
           {data.map((r, i) => (
             <tr key={i} className="border-t border-gray-300 hover:bg-gray-50">
-              <td className="px-4 py-3 min-w-[7.5rem]">{formatFullDate(r.TXN_DATE)}</td>
+              <td className="px-4 py-3 min-w-[7.5rem]">{formatFullDate(r.VAL_DATE)}</td>
               <td className="px-4 py-3 max-w-[26rem] truncate" title={r.REMARKS}>
                 {r.REMARKS}
               </td>

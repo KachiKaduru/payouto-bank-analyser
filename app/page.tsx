@@ -8,7 +8,7 @@ import DisplayDataSection from "./_components/DisplayDataSection";
 
 export default function Home() {
   return (
-    <main className="min-h-[100dvh] bg-gradient-to-b from-blue-50 via-white to-blue-100 p-6">
+    <main className="min-h-[100dvh]  p-6">
       <section className="max-w-7xl min-w-2xl mx-auto">
         <PageHeader />
         <UploadForm />
