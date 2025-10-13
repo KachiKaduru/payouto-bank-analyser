@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html {
+  font-size: 90%;
+}
+
 /* * {
   outline: none;
   scrollbar-width: none;

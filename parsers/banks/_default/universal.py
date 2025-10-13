@@ -5,6 +5,7 @@ from typing import List, Dict
 from utils import (
     normalize_column_name,
     FIELD_MAPPINGS,
+    MAIN_TABLE_SETTINGS,
     normalize_date,
     to_float,
     parse_text_row,
@@ -15,25 +16,14 @@ from utils import (
 def parse(path: str) -> List[Dict[str, str]]:
     transactions = []
     global_headers = None
-    global_header_map = None
 
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
                 print(f"(default): Processing page {page_num}", file=sys.stderr)
+
                 # Table extraction settings
-                table_settings = {
-                    "vertical_strategy": "lines",
-                    "horizontal_strategy": "lines",
-                    "explicit_vertical_lines": [],
-                    "explicit_horizontal_lines": [],
-                    "snap_tolerance": 3,
-                    "join_tolerance": 3,
-                    "min_words_vertical": 3,
-                    "min_words_horizontal": 1,
-                    "text_tolerance": 1,
-                }
-                tables = page.extract_tables(table_settings)
+                tables = page.extract_tables(MAIN_TABLE_SETTINGS)
 
                 if tables:
                     for table in tables:
@@ -54,11 +44,7 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                         if is_header_row and not global_headers:
                             global_headers = normalized_first_row
-                            global_header_map = {
-                                i: h
-                                for i, h in enumerate(global_headers)
-                                if h in FIELD_MAPPINGS
-                            }
+
                             print(
                                 f"Stored global headers: {global_headers}",
                                 file=sys.stderr,
