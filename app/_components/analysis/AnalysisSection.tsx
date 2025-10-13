@@ -69,7 +69,7 @@ export default function AnalysisSection({ className = "" }) {
       <BucketsTable />
 
       {/* Top Transactions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <SummaryTable data={topCredits} title="Credit" property="CREDIT" />
         <SummaryTable data={topDebits} title="Debit" property="DEBIT" />
       </div>

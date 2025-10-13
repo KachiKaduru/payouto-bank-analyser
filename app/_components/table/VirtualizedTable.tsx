@@ -31,7 +31,7 @@ const RowComponent = memo(
         style={style}
         className={`${gridCols} border-b border-gray-100 ${tableBorders} ${
           failed
-            ? "bg-red-50 hover:bg-red-100/70"
+            ? "bg-red-100/70 hover:bg-red-100 border-white"
             : index % 2 === 0
             ? "bg-white hover:bg-blue-50/50"
             : "bg-gray-50 hover:bg-blue-50/50"

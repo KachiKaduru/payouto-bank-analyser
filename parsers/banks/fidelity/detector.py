@@ -1,97 +1,95 @@
-# import pdfplumber
-# import re
-# import sys
-# from typing import Callable, Optional, List, Dict
-# from .universal import parse as parse_universal
-
-# # Import more as you add variants, e.g.:
-# # from .parser_001 import parse as parse_001
-
-# # Bank-level pattern to confirm it's a Fidelity statement
-# BANK_PATTERN = ["fidelitybank.ng", re.compile(r"fidelity\s+bank", re.IGNORECASE)]
-
-# VARIANT_PATTERNS = {
-#     # Add variant-specific patterns here, e.g.:
-#     # "001": ["personal account", re.compile(r"transaction\s+date")],
-# }
-
-
-# def detect_variant(path: str) -> Optional[Callable[[str], List[Dict[str, str]]]]:
-#     try:
-#         with pdfplumber.open(path) as pdf:
-#             if not pdf.pages:
-#                 return None
-
-#             # Extract first page text for matching
-#             first_page_text = pdf.pages[0].extract_text() or ""
-#             first_page_text_lower = first_page_text.lower()
-
-#             # Check if it's a Fidelity bank statement
-#             if all(
-#                 (isinstance(p, str) and p.lower() in first_page_text_lower)
-#                 or (isinstance(p, re.Pattern) and p.search(first_page_text_lower))
-#                 for p in BANK_PATTERN
-#             ):
-#                 print("[INFO] Confirmed Fidelity bank statement", file=sys.stderr)
-#             else:
-#                 print(
-#                     "[WARN] Not a Fidelity statement, defaulting to universal",
-#                     file=sys.stderr,
-#                 )
-#                 return parse_universal
-
-#             # Check for variants
-#             for variant, patterns in VARIANT_PATTERNS.items():
-#                 if all(
-#                     (isinstance(p, str) and p.lower() in first_page_text_lower)
-#                     or (isinstance(p, re.Pattern) and p.search(first_page_text_lower))
-#                     for p in patterns
-#                 ):
-#                     print(
-#                         f"[INFO] Detected Fidelity variant: {variant}", file=sys.stderr
-#                     )
-#                     # Return variant-specific parser, e.g., return parse_001
-#                     return parse_universal  # For now, use universal
-
-#         return parse_universal  # Fallback if nothing matched
-#     except Exception as e:
-#         print(f"[WARN] Detector error, defaulting to universal: {e}", file=sys.stderr)
-#         return parse_universal
-
-
-import pdfplumber
-import re
+# banks/fidelity/detector.py
 import sys
-from typing import Callable, Optional, List, Dict
+import re
+from typing import Callable, Optional, List, Dict, Any
+import pdfplumber
+
 from .universal import parse as parse_universal
 
-# Import more as you add variants, e.g.:
-# from .parser_001 import parse as parse_001
+# Variant parsers (add as you create them)
+from .parser_summary import parse as parse_001  # SUMMARY-first variant
 
-VARIANT_PATTERNS = {
-    # Example: Add real patterns from your PDFs
-    # "001": ["Unique Header for Zenith Type 1", re.compile(r"Zenith Pattern 1")],
-    # Add more for 002, etc.
+# from .parser_variant002 import parse as parse_002  # Uncomment when ready
+
+
+# Variant registry:
+# - patterns: list of strings and/or compiled regexes
+# - min_hits: how many of the patterns must be present to trigger the variant
+VARIANT_PATTERNS: Dict[str, Dict[str, Any]] = {
+    "001": {
+        "patterns": [
+            "summary",
+            "beginning balance",
+            "pay in",
+            "pay out",
+            "online banking",
+            "ending balance",
+        ],
+        "min_hits": 3,
+    },
+    # "002": {
+    #     "patterns": [
+    #         re.compile(r"\btransaction\s+date\b", re.I),
+    #         re.compile(r"\bvalue\s+date\b", re.I),
+    #         # add any unique words/lines you notice for this variant
+    #         "some unique header text",
+    #     ],
+    #     "min_hits": 2,
+    # },
 }
+
+# Map variant key -> parser callable
+PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
+    "001": parse_001,
+    # "002": parse_002,
+}
+
+
+def _count_hits(page_text: str, patterns: List[Any]) -> int:
+    t = (page_text or "").lower()
+    hits = 0
+    for p in patterns:
+        if isinstance(p, str):
+            if p.lower() in t:
+                hits += 1
+        elif isinstance(p, re.Pattern):
+            if p.search(t):
+                hits += 1
+    return hits
+
+
+def _match_variant_on_page(
+    variant_key: str, cfg: Dict[str, Any], page_text: str
+) -> bool:
+    patterns = cfg.get("patterns", [])
+    min_hits = int(cfg.get("min_hits", max(1, len(patterns))))
+    return _count_hits(page_text, patterns) >= min_hits
 
 
 def detect_variant(path: str) -> Optional[Callable[[str], List[Dict[str, str]]]]:
     try:
         with pdfplumber.open(path) as pdf:
             if not pdf.pages:
-                return None
-            text = pdf.pages[0].extract_text() or ""  # Check first page
-            text_lower = text.lower()
+                return parse_universal
 
-            for variant, patterns in VARIANT_PATTERNS.items():
-                if all(
-                    (isinstance(p, str) and p.lower() in text_lower)
-                    or (isinstance(p, re.Pattern) and p.search(text_lower))
-                    for p in patterns
-                ):
-                    print(f"Detected variant: {variant}", file=sys.stderr)
-                    return globals()[f"parse_{variant}"]  # e.g., parse_001
+            # Check page 1, then page 2 if nothing matches (some PDFs shift content)
+            texts = [
+                pdf.pages[0].extract_text() or "",
+                (pdf.pages[1].extract_text() or "") if len(pdf.pages) > 1 else "",
+            ]
 
-        return parse_universal  # Default to universal if no match
-    except Exception:
+            for page_text in texts:
+                if not page_text:
+                    continue
+                for key, cfg in VARIANT_PATTERNS.items():
+                    if _match_variant_on_page(key, cfg, page_text):
+                        parser = PARSER_MAP.get(key, parse_universal)
+                        print(f"Detected variant: {key}", file=sys.stderr)
+                        return parser
+
+            # No variant matched → universal
+            return parse_universal
+
+    except Exception as e:
+        print(f"Detector error, falling back to universal: {e}", file=sys.stderr)
         return parse_universal
