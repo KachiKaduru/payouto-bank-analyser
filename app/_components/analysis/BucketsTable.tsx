@@ -7,10 +7,10 @@ export default function BucketsTable() {
   const buckets = useAnalysisStore((s) => s.buckets);
 
   return (
-    <div className="rounded-2xl border border-gray-300 overflow-x-auto tracking-wide">
+    <div className="rounded-2xl border border-gray-300 overflow-x-auto tracking-wide bg-white">
       <table className="min-w-full text-sm">
-        <thead className="bg-blue-50 text-blue-800 font-semibold text-sm">
-          <tr className="divide divide-gray-300">
+        <thead className="bg-blue-50 text-blue-950 font-semibold text-sm">
+          <tr className="divide-x divide-gray-300">
             {/* {tableHeader.map((header) => (
               <th key={header} className="text-center px-4 py-3 border-r border-gray-300">
                 {header}

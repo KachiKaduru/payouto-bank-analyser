@@ -35,7 +35,7 @@ export default function ErrorSection() {
           onClick={() => setShowDetails((v) => !v)}
           className="flex items-center justify-between w-full px-5 py-3 text-sm text-gray-600 bg-gray-50 hover:bg-gray-100 transition"
         >
-          <span className="font-medium">View full details</span>
+          <span className="font-medium">{showDetails ? "Hide" : "View full"} details</span>
           <ChevronDownIcon
             className={`w-5 h-5 transform transition-transform ${showDetails ? "rotate-180" : ""}`}
           />

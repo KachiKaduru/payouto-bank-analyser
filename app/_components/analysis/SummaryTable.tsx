@@ -9,12 +9,12 @@ interface SummaryTableProps {
 
 export default function SummaryTable({ data, title, property = "CREDIT" }: SummaryTableProps) {
   return (
-    <div className="rounded-2xl border border-gray-300 overflow-x-auto">
+    <div className="rounded-2xl border border-gray-300 overflow-x-auto bg-white">
       <div className="px-4 py-3 border-b border-gray-300 font-semibold capitalize">
         Top 10 {title}s
       </div>
       <table className="min-w-full text-sm">
-        <thead className="bg-blue-50 text-blue-800 font-semibold text-sm">
+        <thead className="bg-blue-50 text-blue-950 font-semibold text-sm">
           <tr>
             <th className="text-left px-4 py-3">TRANSACTION DATE</th>
             <th className="text-left px-4 py-3">REMARKS</th>
