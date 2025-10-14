@@ -1,16 +1,12 @@
 @import "tailwindcss";
 
-html {
-  font-size: 90%;
-}
-
-/* * {
+* {
   outline: none;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  /* scrollbar-width: 15px; */
+  /* -ms-overflow-style: none; */
 }
 
-*::-webkit-scrollbar {
+/* *::-webkit-scrollbar {
   display: none;
 } */
 
