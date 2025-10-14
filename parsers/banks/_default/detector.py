@@ -5,7 +5,7 @@ from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
 
 # Import more as you add variants, e.g.:
-# from .parser_001 import parse as parse_001
+# from .model_01 import parse as parse_001
 
 VARIANT_PATTERNS = {
     # Example: Add real patterns from your PDFs

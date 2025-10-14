@@ -3,7 +3,7 @@ import re
 import sys
 from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
-from .parser_001 import parse as parse_001  # Import the new parser
+from .model_01 import parse as parse_001  # Import the new parser
 
 # Map variant keys directly to their parser functions
 PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {

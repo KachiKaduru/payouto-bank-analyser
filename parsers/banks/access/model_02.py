@@ -6,7 +6,6 @@ from utils import *
 def parse(path: str) -> List[Dict[str, str]]:
     transactions = []
     global_headers = None
-    global_header_map = None
 
     try:
         with pdfplumber.open(path) as pdf:
@@ -47,11 +46,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                         if is_header_row and not global_headers:
                             # Store headers from the first page with headers
                             global_headers = normalized_first_row
-                            global_header_map = {
-                                i: h
-                                for i, h in enumerate(global_headers)
-                                if h in FIELD_MAPPINGS
-                            }
+
                             print(
                                 f"Stored global headers: {global_headers}",
                                 file=sys.stderr,
