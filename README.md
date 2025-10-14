@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Payouto Bank Statement Analyser
+
+A powerful and flexible tool for parsing, analyzing, and extracting insights from Nigerian bank statements in PDF format.
+
+## Features
+
+- **Multi-Bank Support**: Compatible with major Nigerian banks including:
+  - Access Bank
+  - First Bank
+  - GTBank
+  - UBA
+  - Zenith Bank
+  - Fidelity
+  - FCMB
+  - And many more...
+
+- **Comprehensive Analysis**:
+  - Transaction parsing and normalization
+  - Statement metadata extraction
+  - Data validation and integrity checks
+  - Transaction categorization
+  - Financial insights and summaries
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js (Latest LTS version)
+- Python 3.x
+- pip (Python package manager)
+
+### Installation
+
+1. Clone the repository:
 
 ```bash
+git clone https://github.com/KachiKaduru/payouto-bank-analyser.git
+
+cd payouto-bank-analyser
+```
+2. Install Node.js dependencies:
+
+```
+npm install
+```
+3. Install Python dependencies:
+
+```
+pip install -r requirements.txt
+```
+4. Run the development server:
+
+```
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application should now be running at http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
+- **Frontend**
+  - Next.js
+  - TypeScript
+  - TailwindCSS
+  - Framer Motion
+  - Zustand (State Management)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Backend**
+  - Python
+  - pdfplumber (PDF Processing)
+  - FastAPI (API Server)
 
-## Learn More
+## How It Works
+1. **Upload:** Users upload their bank statement PDF and select their bank
 
-To learn more about Next.js, take a look at the following resources:
+2. **Processing:**
+    - The system detects the bank and statement format
+    - Applies the appropriate parsing strategy
+    - Extracts transaction data and metadata
+    - Performs validation checks
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. **Analysis:**
+    - Transactions are normalized and categorized
+    - Metadata is extracted and validated
+    - Legitimacy checks are performed
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. **Results:**
+    - View parsed transactions in an interactive table
+    - Access statement metadata and validation results
+    - Export data to Excel for further analysis
+  
+5. **Security** 
+    - PDF passwords are handled securely
+    - All processing is done locally
+    - No data is stored on servers
+    - Secure validation checks for statement legitimacy
 
-## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Contributing
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+  - All the Nigerian banks for their statement formats
+  - The open-source community for various tools and libraries used in this project. 
