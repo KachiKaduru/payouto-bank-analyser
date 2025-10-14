@@ -32,7 +32,7 @@ A powerful and flexible tool for parsing, analyzing, and extracting insights fro
 
 ### Installation
 
-1. Clone the repository:
+1. **Clone the repository:**
 
 ```bash
 git clone https://github.com/KachiKaduru/payouto-bank-analyser.git
@@ -40,19 +40,19 @@ git clone https://github.com/KachiKaduru/payouto-bank-analyser.git
 cd payouto-bank-analyser
 ```
 
-1. Install Node.js dependencies:
+2. **Install Node.js dependencies:**
 
-```bash
+```powershell
 npm install
 ```
 
-1. Install Python dependencies:
+3. **Install Python dependencies:**
 
-```bash
+```powershell
 pip install -r requirements.txt
 ```
 
-1. Run the development server:
+4. **Run the development server:**
 
 ```bash
 npm run dev
@@ -73,7 +73,6 @@ The application should now be running at [http://localhost:3000](http://localhos
 - **Backend**
   - Python
   - pdfplumber (PDF Processing)
-  - FastAPI (API Server)
 
 ## How It Works
 
