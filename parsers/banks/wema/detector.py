@@ -3,11 +3,11 @@ import re
 import sys
 from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
-from .model_1 import parse as parse_model_1
+from .model_01 import parse as parse_model_01
 
 # Map variant keys directly to their parser functions
 PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
-    "001": parse_model_1,
+    "001": parse_model_01,
 }
 
 # Define text patterns unique to each WEMA statement variant
