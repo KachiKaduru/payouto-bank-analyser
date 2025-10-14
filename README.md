@@ -5,6 +5,7 @@ A powerful and flexible tool for parsing, analyzing, and extracting insights fro
 ## Features
 
 - **Multi-Bank Support**: Compatible with major Nigerian banks including:
+
   - Access Bank
   - First Bank
   - GTBank
@@ -38,26 +39,31 @@ git clone https://github.com/KachiKaduru/payouto-bank-analyser.git
 
 cd payouto-bank-analyser
 ```
-2. Install Node.js dependencies:
 
-```
+1. Install Node.js dependencies:
+
+```bash
 npm install
 ```
-3. Install Python dependencies:
 
-```
+1. Install Python dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
-4. Run the development server:
 
-```
+1. Run the development server:
+
+```bash
 npm run dev
 ```
 
-The application should now be running at http://localhost:3000
+The application should now be running at [http://localhost:3000](http://localhost:3000)
 
 ## Tech Stack
+
 - **Frontend**
+
   - Next.js
   - TypeScript
   - TailwindCSS
@@ -70,37 +76,43 @@ The application should now be running at http://localhost:3000
   - FastAPI (API Server)
 
 ## How It Works
+
 1. **Upload:** Users upload their bank statement PDF and select their bank
 
 2. **Processing:**
-    - The system detects the bank and statement format
-    - Applies the appropriate parsing strategy
-    - Extracts transaction data and metadata
-    - Performs validation checks
+
+   - The system detects the bank and statement format
+   - Applies the appropriate parsing strategy
+   - Extracts transaction data and metadata
+   - Performs validation checks
 
 3. **Analysis:**
-    - Transactions are normalized and categorized
-    - Metadata is extracted and validated
-    - Legitimacy checks are performed
+
+   - Transactions are normalized and categorized
+   - Metadata is extracted and validated
+   - Legitimacy checks are performed
 
 4. **Results:**
-    - View parsed transactions in an interactive table
-    - Access statement metadata and validation results
-    - Export data to Excel for further analysis
-  
-5. **Security** 
-    - PDF passwords are handled securely
-    - All processing is done locally
-    - No data is stored on servers
-    - Secure validation checks for statement legitimacy
 
+   - View parsed transactions in an interactive table
+   - Access statement metadata and validation results
+   - Export data to Excel for further analysis
+
+5. **Security**
+   - PDF passwords are handled securely
+   - All processing is done locally
+   - No data is stored on servers
+   - Secure validation checks for statement legitimacy
 
 ## Contributing
+
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
 ## License
+
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
-  - All the Nigerian banks for their statement formats
-  - The open-source community for various tools and libraries used in this project. 
+
+- All the Nigerian banks for their statement formats
+- The open-source community for various tools and libraries used in this project.
