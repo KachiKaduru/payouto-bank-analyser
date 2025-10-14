@@ -1,5 +1,4 @@
 import sys
-import re
 import pdfplumber
 from typing import List, Dict
 from utils import (
@@ -18,10 +17,24 @@ def parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(f"(globus): Processing page {page_num}", file=sys.stderr)
+                print(f"(wema/model_1): Processing page {page_num}", file=sys.stderr)
 
                 # Table extraction settings
                 tables = page.extract_tables(MAIN_TABLE_SETTINGS)
+
+                # ⚠️ Skip the first table on each page (summary table)
+                if len(tables) > 1:
+                    tables = tables[1:]
+                    print(
+                        f"(wema/model_1): Skipped summary table on page {page_num}",
+                        file=sys.stderr,
+                    )
+                else:
+                    print(
+                        f"(wema/model_1): Only one table on page {page_num}, skipping (summary only)",
+                        file=sys.stderr,
+                    )
+                    continue
 
                 if tables:
                     for table in tables:
@@ -62,7 +75,7 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                         if not global_headers:
                             print(
-                                f"(globus): No headers found by page {page_num}, skipping table",
+                                f"(wema/model_1): No headers found by page {page_num}, skipping table",
                                 file=sys.stderr,
                             )
                             continue
@@ -72,7 +85,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                             transactions.append(standardized_row)
                 else:
                     print(
-                        f"(globus): No tables found on page {page_num}",
+                        f"(wema/model_1): No tables found on page {page_num}",
                         file=sys.stderr,
                     )
 
@@ -81,5 +94,5 @@ def parse(path: str) -> List[Dict[str, str]]:
         )
 
     except Exception as e:
-        print(f"Error processing First Bank statement: {e}", file=sys.stderr)
+        print(f"Error processing WEMA Bank statement: {e}", file=sys.stderr)
         return []
