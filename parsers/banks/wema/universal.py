@@ -10,7 +10,10 @@ from utils import normalize_date, to_float, calculate_checks, STANDARDIZED_ROW
 MONTH_PATTERN = r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
 
 # Regex helpers (more strict than before)
-FULL_DATE_RE = re.compile(rf"(\d{{1,2}}[-/ ]*{MONTH_PATTERN}[-/ ]*\d{{2,4}})", re.I)
+FULL_DATE_RE = re.compile(
+    rf"\b(\d{{1,2}})[-/ ]*({MONTH_PATTERN})[-/ ]*(?:20\d{{2}}|19\d{{2}})\b",
+    re.I,
+)
 DATE_START_RE = re.compile(rf"^\s*(\d{{1,2}})[-/ ]*({MONTH_PATTERN})\b", re.I)
 YEAR_RE = re.compile(r"\b(20\d{2}|19\d{2}|\d{2})\b")
 MONEY_RE = re.compile(r"[\d,]+\.\d{2}")
@@ -219,37 +222,44 @@ def _build_transaction(
 ) -> Optional[Dict[str, str]]:
     """
     Reconstruct a single transaction from the lines belonging to it.
+
+    ✅ Handles both single-line and split-date formats (e.g. '03-Mar-2025' and '03-Mar-\n2025')
+    ✅ Uses Opening Balance when available
+    ✅ Falls back gracefully on the first transaction (no prev_balance)
     Returns a STANDARDIZED_ROW-like dict or None on failure.
     """
     try:
-        # Operate on a mutable copy (we may remove trailing-year)
+        # 1. Build a joined version of all text lines (makes regex easier)
         lines_copy = list(lines)
+        full_text = " ".join(lines_copy).strip()
 
-        # 1) Extract trailing year token if present and clean lines
-        trailing_year, lines_cleaned = _extract_trailing_year_and_clean(lines_copy)
-
-        # 2) Build full_text from cleaned lines
-        full_text = " ".join(lines_cleaned).strip()
-
-        # 3) Try to find a contiguous full date first (best case)
+        # 2. Try to match a full date like "03-Mar-2025" directly
         dmatch = FULL_DATE_RE.search(full_text)
         date_str = ""
+        trailing_year = None
+        lines_cleaned = list(lines_copy)
+
         if dmatch:
-            date_str = dmatch.group(1)
+            # Found a single-line full date → perfect
+            date_str = dmatch.group(0)
         else:
-            # fallback: take day+month from first cleaned line and the LAST valid year token
+            # No single-line full date → handle split layout ("03-Mar-\n2025")
+            trailing_year, lines_cleaned = _extract_trailing_year_and_clean(
+                lines_cleaned
+            )
+            full_text = " ".join(lines_cleaned).strip()
+
+            # Try to combine day+month + trailing year
             first_line = lines_cleaned[0] if lines_cleaned else ""
             m0 = DATE_START_RE.match(first_line)
-            year_token = None
-            if trailing_year:
-                year_token = trailing_year
-            else:
-                # prefer a 4-digit year if present
+            year_token = trailing_year
+            if not year_token:
+                # Prefer a 4-digit year found anywhere
                 y_match = re.findall(r"\b(20\d{2}|19\d{2})\b", full_text)
                 if y_match:
                     year_token = y_match[-1]
                 else:
-                    # as last resort take any 2-digit year but be cautious (rare)
+                    # fallback: last 2-digit year token
                     y2 = re.findall(r"\b(\d{2})\b", full_text)
                     if y2:
                         year_token = y2[-1]
@@ -259,33 +269,32 @@ def _build_transaction(
                     year_token = f"20{year_token}"
                 date_str = f"{m0.group(1)}-{m0.group(2)}-{year_token}"
 
+        # Normalize to consistent ISO date format (YYYY-MM-DD)
         txn_date = normalize_date(date_str) if date_str else ""
 
-        # 4) Remove date/year fragments from the remainder for easier parsing
+        # 3. Remove the date and year fragments from the text to simplify remainder parsing
         remainder = full_text
         if dmatch:
-            remainder = remainder.replace(dmatch.group(1), " ", 1)
+            remainder = remainder.replace(dmatch.group(0), " ", 1)
         else:
-            # remove first line day+month fragment if present
             m0 = DATE_START_RE.match(lines_cleaned[0]) if lines_cleaned else None
             if m0:
                 remainder = remainder.replace(m0.group(0), " ", 1)
-            # remove trailing_year if still present
             if trailing_year:
                 remainder = re.sub(
                     rf"\b{re.escape(trailing_year)}\b", " ", remainder, count=1
                 )
 
-        # 5) Extract money tokens reliably (repair if needed)
+        # 4. Extract money values (should be [amount, balance]) — auto-repair if tokens are split
         money_tokens = _repair_money_tokens(remainder)
         if len(money_tokens) < 2:
-            # final fallback: try native regex on the remainder once more
+            # fallback: native regex
             money_tokens = MONEY_RE.findall(remainder)
         if len(money_tokens) < 2:
             print(f"(wema): skipping txn (bad money tokens) {lines}", file=sys.stderr)
             return None
 
-        # ensure tokens don't contain spaces and strip commas for numeric parsing
+        # Normalize numeric tokens → remove spaces/commas
         money_tokens = [t.replace(" ", "") for t in money_tokens]
         amount_str = money_tokens[-2].replace(",", "")
         balance_str = money_tokens[-1].replace(",", "")
@@ -293,29 +302,39 @@ def _build_transaction(
         amt_val = to_float(amount_str)
         bal_val = to_float(balance_str)
 
-        # 6) Reference token
+        # 5. Extract reference (alphanumeric code like S95223404)
         ref_match = REF_RE.search(remainder)
         reference = ref_match.group(1).upper() if ref_match else ""
 
-        # 7) Remarks: remove money tokens and reference, clean leftover years etc.
+        # 6. Clean up remarks (remove money tokens, references, and standalone years)
         remainder_no_money = MONEY_RE.sub(" ", remainder)
         remarks = _clean_remarks_from(remainder_no_money, reference)
 
-        # 8) Debit/Credit assignment by comparing balances
+        # 7. Determine DEBIT or CREDIT value
         debit, credit = "0.00", "0.00"
+
         if prev_balance is not None:
+            # ✅ Compare new balance with previous → direction of transaction
             if bal_val < prev_balance:
-                # balance decreased → debit
                 debit = f"{amt_val:.2f}"
             elif bal_val > prev_balance:
-                # balance increased → credit
                 credit = f"{amt_val:.2f}"
-            # if equal, leave both 0.00 (rare)
         else:
-            # no prev balance known (opening) — leave both as 0.00
-            debit = "0.00"
-            credit = "0.00"
+            # 🧠 First transaction — no previous balance yet
+            # Try to infer likely direction using context keywords
+            if (
+                "vat" in remarks.lower()
+                or "fee" in remarks.lower()
+                or "charge" in remarks.lower()
+                or "transfer" in remarks.lower()
+            ):
+                # Charges, fees, and VATs are usually debits
+                debit = f"{amt_val:.2f}"
+            else:
+                # Otherwise assume incoming credit (e.g., salary, transfer, deposit)
+                credit = f"{amt_val:.2f}"
 
+        # 8️⃣ Construct standardized transaction dict
         txn = STANDARDIZED_ROW.copy()
         txn.update(
             {
@@ -328,7 +347,9 @@ def _build_transaction(
                 "BALANCE": f"{bal_val:.2f}",
             }
         )
+
         return txn
+
     except Exception as e:
         print(
             f"(wema): Failed to build transaction from lines {lines} — {e}",
