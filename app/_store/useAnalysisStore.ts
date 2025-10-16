@@ -33,6 +33,16 @@ interface AnalysisState {
 
   filters: AnalysisFilters;
 
+  rollingCredit: {
+    total30: number;
+    total90: number;
+    total180: number;
+    avg30: number; // per-30-day average over last 30d (i.e., total30 / 1)
+    avg90: number; // per-30-day average over last 90d (i.e., total90 / 3)
+    avg180: number; // per-30-day average over last 180d (i.e., total180 / 6)
+    combinedAvg: number; // mean of (avg30, avg90, avg180)
+  };
+
   setRaw: (rows: ParsedRow[]) => void;
   setFilters: (patch: Partial<AnalysisFilters>) => void;
   recompute: () => void;
@@ -131,6 +141,7 @@ const twoMonthKey = (iso: string) => {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${y}-${pad(start)}..${y}-${pad(end)}`;
 };
+
 const quarterKey = (iso: string) => {
   const [y, m] = iso.split("-").map(Number);
   const q = Math.floor((m - 1) / 3) + 1;
@@ -149,6 +160,7 @@ const startOfDataISO = (rows: ParsedRow[]): string | null => {
   isos.sort((a, b) => a.localeCompare(b));
   return isos[0];
 };
+
 const endOfDataISO = (rows: ParsedRow[]): string | null => {
   const isos = rows.map((r) => toISO(r.TXN_DATE)).filter(Boolean) as string[];
   if (!isos.length) return null;
@@ -212,6 +224,16 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     search: "",
     sortBy: "none",
     bucket: "monthly",
+  },
+
+  rollingCredit: {
+    total30: 0,
+    total90: 0,
+    total180: 0,
+    avg30: 0,
+    avg90: 0,
+    avg180: 0,
+    combinedAvg: 0,
   },
 
   setRaw: (rows) => {
@@ -365,6 +387,41 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       typeSummary[t].rows += 1;
     }
 
-    set({ filtered: sorted, totals, buckets, typeSummary });
+    // Rolling credit means (last 30/90/180 days)
+    const creditInWindow = (days: number) => {
+      if (!maxISO) return 0;
+      const from = dateAddDays(maxISO, -(days - 1)); // inclusive window
+      const to = maxISO;
+      let sum = 0;
+      for (const r of raw) {
+        const iso = toISO(r.VAL_DATE);
+        if (!iso) continue;
+        if (iso >= from && iso <= to) {
+          sum += parseMoney(r.CREDIT);
+        }
+      }
+      return sum;
+    };
+
+    const total30 = creditInWindow(30);
+    const total90 = creditInWindow(90);
+    const total180 = creditInWindow(180);
+
+    // Convert window totals to “per 30-day average”
+    const avg30 = total30 / 1;
+    const avg90 = total90 / 3;
+    const avg180 = total180 / 6;
+
+    // Mean of the three monthly averages
+    const nonEmpty = [avg30, avg90, avg180].filter((n) => Number.isFinite(n));
+    const combinedAvg = nonEmpty.length ? (avg30 + avg90 + avg180) / nonEmpty.length : 0;
+
+    set({
+      filtered: sorted,
+      totals,
+      buckets,
+      typeSummary,
+      rollingCredit: { total30, total90, total180, avg30, avg90, avg180, combinedAvg },
+    });
   },
 }));

@@ -10,6 +10,9 @@ import FilterControls from "./FilterControls";
 import SummaryTiles from "./SummaryTiles";
 import BucketsTable from "./BucketsTable";
 import SummaryTable from "./SummaryTable";
+import RollingCreditTiles from "./RollingCreditTiles";
+import RollingCreditSummary from "./RollingCreditSummary";
+import RollingCreditChart from "./RollingCreditChart";
 
 export default function AnalysisSection({ className = "" }) {
   const data = useParserStore((s) => s.data);
@@ -64,6 +67,10 @@ export default function AnalysisSection({ className = "" }) {
 
       {/* Summary */}
       <SummaryTiles />
+
+      <RollingCreditTiles />
+      {/* <RollingCreditChart /> */}
+      {/* <RollingCreditSummary /> */}
 
       {/* Buckets */}
       <BucketsTable />

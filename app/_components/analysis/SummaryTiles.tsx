@@ -21,19 +21,22 @@ export default function SummaryTiles() {
   if (totals.credit === 0 && totals.debit === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <Tile title="Total Credit" value={formatNaira(totals.credit)} color="text-green-700" />
-      <Tile title="Total Debit" value={formatNaira(totals.debit)} color="text-red-700" />
-      <Tile
-        title="Net"
-        value={formatNaira(totals.net)}
-        color={totals.net >= 0 ? "text-emerald-700" : "text-rose-700"}
-      />
-      <Tile
-        title="Balance Checks Passed"
-        value={`${(totals.passRatio * 100).toFixed(1)}%`}
-        color="text-blue-700"
-      />
-    </div>
+    <>
+      <h1 className="grid-span-1">Total overview</h1>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Tile title="Total Credit" value={formatNaira(totals.credit)} color="text-green-700" />
+        <Tile title="Total Debit" value={formatNaira(totals.debit)} color="text-red-700" />
+        <Tile
+          title="Net"
+          value={formatNaira(totals.net)}
+          color={totals.net >= 0 ? "text-emerald-700" : "text-rose-700"}
+        />
+        <Tile
+          title="Balance Checks Passed"
+          value={`${(totals.passRatio * 100).toFixed(1)}%`}
+          color="text-blue-700"
+        />
+      </div>
+    </>
   );
 }

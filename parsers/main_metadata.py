@@ -1,8 +1,9 @@
-# metadata_extractor.py
+# parsers/main_metadata_extractor.py
 import re
 import pdfplumber
-from typing import Dict, Optional
-from utils import *
+from typing import Dict, Optional, List
+
+from utils import to_float
 
 RX_MONEY = re.compile(r"(?:₦|NGN)?\s?[-\d,]+\.\d{2}")
 RX_DATE_ISO = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
@@ -198,8 +199,7 @@ def extract_metadata(path: str) -> Dict:
     return meta
 
 
-# add to metadata_extractor.py (below extract_metadata)
-from typing import List
+# add to main_metadata.py (below extract_metadata)
 
 
 def _is_nuban_10_digits(acct: Optional[str]) -> bool:
@@ -298,7 +298,7 @@ def verify_legitimacy(
             {
                 "id": "opening_closing_consistency",
                 "ok": comp_ok,
-                "severity": "warn" if comp_ok else "fail",
+                "severity": "pass" if comp_ok else "fail",
                 "message": "Opening/closing balance mismatch versus first/last page balances.",
                 "details": reasons or None,
             }

@@ -8,7 +8,7 @@ import importlib
 from validator import is_valid_parse
 from main_parser import main_parse
 from utils import decrypt_pdf
-from metadata_extractor import extract_metadata, verify_legitimacy
+from main_metadata import extract_metadata, verify_legitimacy
 
 
 def dispatch_parse(
