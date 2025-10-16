@@ -46,6 +46,7 @@ export default function FilterControls() {
           <option value="last30">Last 30 days</option>
           <option value="last60">Last 60 days</option>
           <option value="last90">Last 90 days</option>
+          <option value="last180">Last 180 days</option>
           <option value="all">All</option>
           <option value="custom">Custom…</option>
         </select>

@@ -8,11 +8,10 @@ import EmptyState from "../_ui/EmptyState";
 import LoadingState from "../_ui/LoadingState";
 import FilterControls from "./FilterControls";
 import SummaryTiles from "./SummaryTiles";
-import BucketsTable from "./BucketsTable";
 import SummaryTable from "./SummaryTable";
 import RollingCreditTiles from "./RollingCreditTiles";
 import RollingCreditSummary from "./RollingCreditSummary";
-import RollingCreditChart from "./RollingCreditChart";
+import BucketsSection from "./BucketsSection";
 
 export default function AnalysisSection({ className = "" }) {
   const data = useParserStore((s) => s.data);
@@ -70,10 +69,10 @@ export default function AnalysisSection({ className = "" }) {
 
       <RollingCreditTiles />
       {/* <RollingCreditChart /> */}
-      {/* <RollingCreditSummary /> */}
+      <RollingCreditSummary />
 
       {/* Buckets */}
-      <BucketsTable />
+      <BucketsSection />
 
       {/* Top Transactions */}
       <div className="grid grid-cols-1 gap-6">

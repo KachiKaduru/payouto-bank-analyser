@@ -96,7 +96,7 @@ export function formatNaira(amount: number | string): string {
   });
 }
 
-export function formatMonthYear(period: string): string {
+export function formatTimePeriod(period: string): string {
   if (!period) return "";
 
   const cleaned = period.trim();

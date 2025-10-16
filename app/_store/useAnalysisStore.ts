@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { ParsedRow } from "../_types";
-import { AnalysisFilters, SortKey } from "../_types/analysis-types";
+import { AnalysisFilters, Bucket, RollingCredit, SortKey } from "../_types/analysis-types";
 
 interface AnalysisState {
   raw: ParsedRow[];
@@ -12,15 +12,7 @@ interface AnalysisState {
     rows: number;
     passRatio: number;
   };
-  buckets: Array<{
-    label: string;
-    debit: number;
-    credit: number;
-    net: number;
-    rows: number;
-    debitCount?: number;
-    creditCount?: number;
-  }>;
+  buckets: Bucket[];
   /** uses classifyType so it's not unused and also gives quick breakdowns */
   typeSummary: Record<
     "transferIn" | "transferOut" | "pos" | "levy" | "airtime" | "data" | "other",
@@ -33,15 +25,7 @@ interface AnalysisState {
 
   filters: AnalysisFilters;
 
-  rollingCredit: {
-    total30: number;
-    total90: number;
-    total180: number;
-    avg30: number; // per-30-day average over last 30d (i.e., total30 / 1)
-    avg90: number; // per-30-day average over last 90d (i.e., total90 / 3)
-    avg180: number; // per-30-day average over last 180d (i.e., total180 / 6)
-    combinedAvg: number; // mean of (avg30, avg90, avg180)
-  };
+  rollingCredit: RollingCredit;
 
   setRaw: (rows: ParsedRow[]) => void;
   setFilters: (patch: Partial<AnalysisFilters>) => void;
@@ -284,6 +268,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     } else if (filters.preset === "last90") {
       to = maxISO || undefined;
       from = to ? dateAdd(-89) : undefined;
+    } else if (filters.preset === "last180") {
+      to = maxISO || undefined;
+      from = to ? dateAdd(-179) : undefined;
     } else if (filters.preset === "all") {
       from = minISO || undefined;
       to = maxISO || undefined;

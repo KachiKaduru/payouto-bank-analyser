@@ -10,9 +10,9 @@ const Tile = ({
   value: string | number;
   color?: string;
 }) => (
-  <div className="bg-white border border-blue-100 rounded-2xl shadow-sm p-5 text-center">
-    <p className="text-sm text-gray-600">{title}</p>
-    <p className={`text-xl font-bold ${color}`}>{value}</p>
+  <div className="bg-white border border-blue-100 rounded-2xl shadow-sm p-5 space-y-1">
+    <p className="text-xs font-semibold text-gray-600">{title}</p>
+    <p className={`text-[22px] font-bold ${color}`}>{value}</p>
   </div>
 );
 
@@ -21,8 +21,9 @@ export default function SummaryTiles() {
   if (totals.credit === 0 && totals.debit === 0) return null;
 
   return (
-    <>
-      <h1 className="grid-span-1">Total overview</h1>
+    <section className="space-y-4">
+      <h1 className="font-semibold text-2xl capitalize text-blue-900">Total overview</h1>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Tile title="Total Credit" value={formatNaira(totals.credit)} color="text-green-700" />
         <Tile title="Total Debit" value={formatNaira(totals.debit)} color="text-red-700" />
@@ -37,6 +38,6 @@ export default function SummaryTiles() {
           color="text-blue-700"
         />
       </div>
-    </>
+    </section>
   );
 }
