@@ -67,8 +67,8 @@ export default function AnalysisSection({ className = "" }) {
       {/* Summary */}
       <SummaryTiles />
 
+      {/* Rolling Credits */}
       <RollingCreditTiles />
-      {/* <RollingCreditChart /> */}
       <RollingCreditSummary />
 
       {/* Buckets */}

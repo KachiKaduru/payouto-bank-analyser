@@ -36,13 +36,6 @@ export default function RollingCreditTiles() {
             = ( {formatNaira(rc.avg30)} + {formatNaira(rc.avg90)} + {formatNaira(rc.avg180)} ) ÷ 3
           </div>
         </div>
-        {/* <div className="rounded-2xl  p-4 bg-blue-50 border border-blue-100">
-          <div className="text-xs text-blue-700">Six-Month Monthly Average (Mean of 30/90/180)</div>
-          <div className="text-2xl font-bold text-blue-900">{formatNaira(rc.combinedAvg)}</div>
-          <div className="text-[11px] text-blue-700 mt-1">
-            = ( {formatNaira(rc.avg30)} + {formatNaira(rc.avg90)} + {formatNaira(rc.avg180)} ) ÷ 3
-          </div>
-        </div> */}
       </div>
     </section>
   );

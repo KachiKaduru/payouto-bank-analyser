@@ -11,7 +11,7 @@ export const banksList = [
   { value: "lotus", label: "Lotus Bank" },
   { value: "moniepoint", label: "Moniepoint MFB" },
   { value: "nomba", label: "Nomba Bank" },
-  // { value: "opay", label: "Opay MFB" },
+  { value: "opay", label: "Opay MFB" },
   // { value: "palmpay", label: "Palmpay MFB" },
   { value: "polaris", label: "Polaris Bank" },
   { value: "providus", label: "Providus Bank" },
