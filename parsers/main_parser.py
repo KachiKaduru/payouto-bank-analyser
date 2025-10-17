@@ -1,3 +1,5 @@
+import sys
+import re
 import pdfplumber
 import json
 from typing import List, Dict

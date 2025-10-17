@@ -1,3 +1,4 @@
+// app/_constants
 export const banksList = [
   { value: "access", label: "Access Bank" },
   { value: "alternative", label: "The Alternative Bank" },

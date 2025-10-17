@@ -1,3 +1,4 @@
+// app/_store/useAnalysisStore.ts
 import { create } from "zustand";
 import { ParsedRow } from "../_types";
 import { AnalysisFilters, Bucket, RollingCredit, SortKey } from "../_types/analysis-types";
