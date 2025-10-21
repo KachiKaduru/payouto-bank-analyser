@@ -2,7 +2,13 @@ import pdfplumber
 import re
 import sys
 from typing import List, Dict
-from utils import normalize_date, to_float, calculate_checks, STANDARDIZED_ROW
+from utils import (
+    normalize_date,
+    to_float,
+    calculate_checks,
+    STANDARDIZED_ROW,
+    normalize_money,
+)
 
 
 # Keywords that signal noise (summaries, headers, footers)
@@ -35,9 +41,7 @@ def parse(path: str) -> List[Dict[str, str]]:
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
-                print(
-                    f"(zenith_parser_001): Processing page {page_num}", file=sys.stderr
-                )
+                print(f"(zenith_model_01): Processing page {page_num}", file=sys.stderr)
 
                 text = page.extract_text() or ""
                 lines = text.split("\n")
@@ -73,7 +77,7 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                     # Match standard transaction rows
                     match = re.match(
-                        r"^(\d{2}/\d{2}/\d{4})\s+(\d{2}/\d{2}/\d{4})\s+(.*?)(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})$",
+                        r"^(\d{2}/\d{2}/\d{4})\s+(\d{2}/\d{2}/\d{4})\s+(.*?)(-?[\d,]*\.\d{2})\s+(-?[\d,]*\.\d{2})\s+(-?[\d,]*\.\d{2})$",
                         line,
                     )
                     if match:
@@ -87,9 +91,9 @@ def parse(path: str) -> List[Dict[str, str]]:
                                 "VAL_DATE": normalize_date(val_date),
                                 "REFERENCE": "",
                                 "REMARKS": desc.strip(),
-                                "DEBIT": f"{to_float(debit):.2f}",
-                                "CREDIT": f"{to_float(credit):.2f}",
-                                "BALANCE": f"{to_float(balance):.2f}",
+                                "DEBIT": f"{normalize_money(debit)}",
+                                "CREDIT": f"{normalize_money(credit)}",
+                                "BALANCE": f"{normalize_money(balance)}",
                             }
                         )
                         transactions.append(row)
@@ -101,5 +105,5 @@ def parse(path: str) -> List[Dict[str, str]]:
         return calculate_checks(transactions)
 
     except Exception as e:
-        print(f"Error in zenith parser_001: {e}", file=sys.stderr)
+        print(f"Error in zenith model_01: {e}", file=sys.stderr)
         return []
