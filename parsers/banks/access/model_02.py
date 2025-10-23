@@ -98,14 +98,12 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                             standardized_row = {
                                 "TXN_DATE": normalize_date(
-                                    row_dict.get(
-                                        "TXN_DATE", row_dict.get("VAL_DATE", "")
-                                    )
+                                    row_dict.get("TXN_DATE", row_dict.get("VAL_DATE"))
+                                    or ""
                                 ),
                                 "VAL_DATE": normalize_date(
-                                    row_dict.get(
-                                        "VAL_DATE", row_dict.get("TXN_DATE", "")
-                                    )
+                                    row_dict.get("VAL_DATE", row_dict.get("TXN_DATE"))
+                                    or ""
                                 ),
                                 "REFERENCE": row_dict.get("REFERENCE", ""),
                                 "REMARKS": row_dict.get("REMARKS", ""),
@@ -123,7 +121,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                                 )
 
                                 if prev_balance is not None:
-                                    if current_balance < prev_balance:
+                                    if (current_balance) < prev_balance:
                                         standardized_row["DEBIT"] = f"{abs(amount):.2f}"
                                         standardized_row["CREDIT"] = "0.00"
                                     else:

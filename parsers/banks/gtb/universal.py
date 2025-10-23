@@ -1,5 +1,4 @@
 import sys
-import re
 import pdfplumber
 from typing import List, Dict
 from utils import (
@@ -21,7 +20,8 @@ def parse(path: str) -> List[Dict[str, str]]:
                 print(f"(gtb): Processing page {page_num}", file=sys.stderr)
 
                 # Table extraction settings
-                tables = page.extract_tables(MAIN_TABLE_SETTINGS)
+                table_settings = MAIN_TABLE_SETTINGS.copy()
+                tables = page.extract_tables(table_settings)
 
                 if tables:
                     for table in tables:
