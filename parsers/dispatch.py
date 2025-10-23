@@ -11,9 +11,7 @@ from utils import decrypt_pdf
 from main_metadata import extract_metadata, verify_legitimacy
 
 
-def dispatch_parse(
-    pdf_path: str, bank: str = None, password: str = None
-) -> Dict[str, Any]:
+def dispatch_parse(pdf_path: str, bank: str, password: str = "") -> Dict[str, Any]:
     """
     Parses a statement PDF using bank-specific or universal parsers.\n
     Returns a single payload:\n

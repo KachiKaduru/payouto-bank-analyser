@@ -102,9 +102,9 @@ export async function POST(req: NextRequest) {
       try {
         // Only attempt to delete if it still exists
         await unlink(tempPath);
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Ignore "no such file" — it was already cleaned up
-        if (err?.code !== "ENOENT") {
+        if (typeof err === "object" && err !== null && "code" in err && (err as { code?: string }).code !== "ENOENT") {
           console.error("Failed to delete temp file:", err);
         }
       }

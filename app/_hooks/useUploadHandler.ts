@@ -61,7 +61,8 @@ export function useUploadHandler() {
       const json = (await res.json()) as ParseResponse | { error?: string };
 
       if (!res.ok) {
-        const errMsg = (json as any)?.error || "Failed to parse file. Unknown error.";
+        const errMsg =
+          (json as { error?: string })?.error || "Failed to parse file. Unknown error.";
         if (typeof errMsg === "string" && errMsg.includes("Please provide a password")) {
           setShowPasswordInput(true);
           setError(errMsg);
