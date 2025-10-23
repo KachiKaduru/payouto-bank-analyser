@@ -1,0 +1,255 @@
+     {
+            "TXN_DATE": "",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " Date Date",
+            "DEBIT": "0.00",
+            "CREDIT": "0.00",
+            "BALANCE": "",
+            "Check": "TRUE",
+            "Check 2": "0.00"
+        },
+        {
+            "TXN_DATE": "2025-03-26",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " ' 500,000.00 ­499,343.82 66/GTINW1/26­03­202506/0117776600",
+            "DEBIT": "3.00",
+            "CREDIT": "0.00",
+            "BALANCE": "5.00",
+            "Check": "FALSE",
+            "Check 2": "8.00"
+        },
+        {
+            "TXN_DATE": "2025-03-26",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " ' 500,000.00 656.18 66/GTINW1/26­03­202506/0117776600 VALUE ADDED TAX Comm on",
+            "DEBIT": "3.00",
+            "CREDIT": "0.00",
+            "BALANCE": "5.00",
+            "Check": "FALSE",
+            "Check 2": "3.00"
+        },
+        {
+            "TXN_DATE": "2025-03-26",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " 'BR 179.80 476.38 IWREJ/66/06/Account not fundedComm on IWREJ/66/06/Account not funded",
+            "DEBIT": "3.00",
+            "CREDIT": "0.00",
+            "BALANCE": "5.00",
+            "Check": "FALSE",
+            "Check 2": "3.00"
+        },
+        {
+            "TXN_DATE": "2025-03-26",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " 'BR 13.48 462.90 VALUE ADDED TAX VAT",
+            "DEBIT": "3.00",
+            "CREDIT": "0.00",
+            "BALANCE": "5.00",
+            "Check": "FALSE",
+            "Check 2": "3.00"
+        },
+        {
+            "TXN_DATE": "2025-08-20",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " ' 2,200,000… ­2,199,537.10 60/GTINW1/20­08­202506/0117776600",
+            "DEBIT": "4.00",
+            "CREDIT": "0.00",
+            "BALANCE": "5.00",
+            "Check": "FALSE",
+            "Check 2": "4.00"
+        },
+        {
+            "TXN_DATE": "2025-08-20",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " ' 2,200,000… 462.90 60/GTINW1/20­08­202506/0117776600",
+            "DEBIT": "4.00",
+            "CREDIT": "0.00",
+            "BALANCE": "5.00",
+            "Check": "FALSE",
+            "Check 2": "4.00"
+        },
+        {
+            "TXN_DATE": "2025-08-21",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " ' 2,200,000… ­2,199,537.10 61/GTINW1/21­08­202506/0117776600",
+            "DEBIT": "3.00",
+            "CREDIT": "0.00",
+            "BALANCE": "5.00",
+            "Check": "FALSE",
+            "Check 2": "3.00"
+        },
+        {
+            "TXN_DATE": "2025-08-21",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " ' 2,200,000… 462.90 61/GTINW1/21­08­202506/0117776600 TRANSFER BETWEEN CUSTOMERS VIA GAPS PRIMELOG­265264344 212496763 FUND DISBURSAL FROM PHASTMONEY ­",
+            "DEBIT": "3.00",
+            "CREDIT": "0.00",
+            "BALANCE": "5.00",
+            "Check": "FALSE",
+            "Check 2": "3.00"
+        },
+        {
+            "TXN_DATE": "2025-04-09",
+            "VAL_DATE": "",
+            "REFERENCE": "INVESTM",
+            "REMARKS": " '24747419… 9,900,000… 9,900,462.90 GTF FROMENT LT GAPS0456457776212496763S LINTH INTEGRATED SERVICES LTD TO PRIMELOG NIBSS Instant Payment Outward",
+            "DEBIT": "0.00",
+            "CREDIT": "0.00",
+            "BALANCE": "52.00",
+            "Check": "FALSE",
+            "Check 2": "47.00"
+        },
+        {
+            "TXN_DATE": "2025-04-09",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " GAPS0117776600212519784S TO WEMA ­ ADESHINA OLUBOYE OYENEYE",
+            "DEBIT": "5.00",
+            "CREDIT": "0.00",
+            "BALANCE": "5.00",
+            "Check": "FALSE",
+            "Check 2": "42.00"
+        },
+        {
+            "TXN_DATE": "2025-04-09",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " 'GAP 50.00 1,900,412.90 Commission on NIP TransferCHARGES",
+            "DEBIT": "5.00",
+            "CREDIT": "0.00",
+            "BALANCE": "5.00",
+            "Check": "FALSE",
+            "Check 2": "5.00"
+        }
+
+        //corrected rows below:
+
+        {
+            "TXN_DATE": "",
+            "VAL_DATE": "",
+            "REFERENCE": "",
+            "REMARKS": " Date Date",
+            "DEBIT": "0.00",
+            "CREDIT": "0.00",
+            "BALANCE": "",
+            "Check": "TRUE",
+            "Check 2": "0.00"
+        },
+        {
+            "TXN_DATE": "2025-03-26",
+            "VAL_DATE": "2025-03-26",
+            "REFERENCE": " ' ",
+            "REMARKS": "66/GTINW1/26­03­202506/0117776600",
+            "DEBIT": "500,000.00",
+            "CREDIT": "0.00",
+            "BALANCE": "-­499,343.82",
+        },
+        {
+            "TXN_DATE": "2025-03-26",
+            "VAL_DATE": "2025-03-26",
+            "REFERENCE": "' ",
+            "REMARKS": " 66/GTINW1/26­03­202506/0117776600",
+            "DEBIT": "0.00",
+            "CREDIT": " 500,000.00",
+            "BALANCE": "656.18",
+         
+        },
+        {
+            "TXN_DATE": "2025-03-26",
+            "VAL_DATE": "2025-03-26",
+            "REFERENCE": "'BR",
+            "REMARKS": " VALUE ADDED TAX Comm on IWREJ/66/06/Account not fundedComm on IWREJ/66/06/Account not funded",
+            "DEBIT": "179.80 ",
+            "CREDIT": "0.00",
+            "BALANCE": "476.38",
+           
+        },
+        {
+            "TXN_DATE": "2025-03-26",
+            "VAL_DATE": "2025-03-26",
+            "REFERENCE": " 'BR",
+            "REMARKS": " VALUE ADDED TAX VAT",
+            "DEBIT": "13.48",
+            "CREDIT": "0.00",
+            "BALANCE": " 462.90",
+            
+        },
+        {
+            "TXN_DATE": "2025-08-20",
+            "VAL_DATE": "2025-08-20",
+            "REFERENCE": "'",
+            "REMARKS": " 60/GTINW1/20­08­202506/0117776600",
+            "DEBIT": " 2,200,000…",
+            "CREDIT": "0.00",
+            "BALANCE": "-2,199,537.10 ",
+           
+        },
+        {
+            "TXN_DATE": "2025-08-20",
+            "VAL_DATE": "2025-08-20",
+            "REFERENCE": "'",
+            "REMARKS": "60/GTINW1/20­08­202506/0117776600",
+            "DEBIT": "0.00",
+            "CREDIT": "2,200,000… ",
+            "BALANCE": "462.90 ",
+           
+        },
+        {
+            "TXN_DATE": "2025-08-21",
+            "VAL_DATE": "2025-08-21",
+            "REFERENCE": "'",
+            "REMARKS": " 61/GTINW1/21­08­202506/0117776600",
+            "DEBIT": "2,200,000…",
+            "CREDIT": "0.00",
+            "BALANCE": "-2,199,537.10",
+            
+        },
+        {
+            "TXN_DATE": "2025-08-21",
+            "VAL_DATE": "2025-08-21",
+            "REFERENCE": "'",
+            "REMARKS": " 61/GTINW1/21­08­202506/0117776600",
+            "DEBIT": "0.00",
+            "CREDIT": "2,200,000…",
+            "BALANCE": "462.90",
+           
+        },
+        {
+            "TXN_DATE": "2025-04-09",
+            "VAL_DATE": "2025-04-09",
+            "REFERENCE": "'24747419… ",
+            "REMARKS": "TRANSFER BETWEEN CUSTOMERS VIA GAPS PRIMELOG­265264344 212496763 FUND DISBURSAL FROM PHASTMONEY GTF FROMENT LT\nGAPS0456457776212496763S LINTH INTEGRATED SERVICES LTD TO PRIMELOG INVESTM",
+            "DEBIT": "0.00",
+            "CREDIT": "9,900,000… ",
+            "BALANCE": "9,900,462.90 ",
+            
+        },
+        {
+            "TXN_DATE": "2025-04-09",
+            "VAL_DATE": "2025-04-09",
+            "REFERENCE": "'24748118...",
+            "REMARKS": " NIBSS Instant Payment Outward GAPS0117776600212519784S TO WEMA ­ ADESHINA OLUBOYE OYENEYE",
+            "DEBIT": "8,000,000...",
+            "CREDIT": "0.00",
+            "BALANCE": "1,900,462.90",
+           
+        },
+        {
+            "TXN_DATE": "2025-04-09",
+            "VAL_DATE": "2025-04-09",
+            "REFERENCE": "'GAP ",
+            "REMARKS": "  Commission on NIP TransferCHARGES",
+            "DEBIT": "50.00 ",
+            "CREDIT": "0.00",
+            "BALANCE": "1,900,412.90",
+           
+        },

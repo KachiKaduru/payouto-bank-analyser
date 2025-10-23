@@ -1,5 +1,5 @@
 import { useAnalysisStore } from "@/app/_store/useAnalysisStore";
-import { formatMonthYear, formatNaira } from "@/app/_utils/helpers";
+import { formatTimePeriod, formatNaira } from "@/app/_utils/helpers";
 
 // const tableHeader = ["Bucket", "Credit", "Debit", "Net", "Credit Count", "Debit Count", "Rows"];
 
@@ -31,7 +31,7 @@ export default function BucketsTable() {
               key={b.label}
               className="border-t border-gray-300 hover:bg-gray-50 divide-x divide-gray-300"
             >
-              <td className="px-4 py-3">{formatMonthYear(b.label)}</td>
+              <td className="px-4 py-3">{formatTimePeriod(b.label)}</td>
               <td className="px-4 py-3 text-center">{formatNaira(b.credit)}</td>
               <td className="px-4 py-3 text-center">{formatNaira(b.debit)}</td>
               <td

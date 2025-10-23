@@ -1,3 +1,5 @@
+// app/_utils/helpers.ts
+
 import { ParsedRow } from "../_types";
 
 export const toISO = (s: string): string | null => {
@@ -96,7 +98,7 @@ export function formatNaira(amount: number | string): string {
   });
 }
 
-export function formatMonthYear(period: string): string {
+export function formatTimePeriod(period: string): string {
   if (!period) return "";
 
   const cleaned = period.trim();
