@@ -48,6 +48,7 @@ FIELD_MAPPINGS = {
         "txn id",
         "tran id",
         "ref. number",
+        "ref. no",
         "reference number",
         "reference\nnumber",
         "check no",
