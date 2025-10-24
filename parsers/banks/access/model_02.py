@@ -1,6 +1,13 @@
 import pdfplumber
+import sys
 from typing import List, Dict
-from utils import *
+from utils import (
+    normalize_column_name,
+    FIELD_MAPPINGS,
+    MAIN_TABLE_SETTINGS,
+    parse_text_row,
+    calculate_checks,
+)
 
 
 def parse(path: str) -> List[Dict[str, str]]:
@@ -12,17 +19,7 @@ def parse(path: str) -> List[Dict[str, str]]:
             for page_num, page in enumerate(pdf.pages, 1):
                 print(f"(access:002): Processing page {page_num}", file=sys.stderr)
                 # Table extraction settings
-                table_settings = {
-                    "vertical_strategy": "lines",
-                    "horizontal_strategy": "lines",
-                    "explicit_vertical_lines": [],
-                    "explicit_horizontal_lines": [],
-                    "snap_tolerance": 3,
-                    "join_tolerance": 3,
-                    "min_words_vertical": 3,
-                    "min_words_horizontal": 1,
-                    "text_tolerance": 1,
-                }
+                table_settings = MAIN_TABLE_SETTINGS.copy()
                 tables = page.extract_tables(table_settings)
 
                 if tables:
@@ -79,75 +76,8 @@ def parse(path: str) -> List[Dict[str, str]]:
                             )
                             continue
 
-                        has_amount = "AMOUNT" in global_headers
-                        balance_idx = (
-                            global_headers.index("BALANCE")
-                            if "BALANCE" in global_headers
-                            else -1
-                        )
-                        prev_balance = None
-
                         for row in data_rows:
-                            if len(row) < len(global_headers):
-                                row.extend([""] * (len(global_headers) - len(row)))
-
-                            row_dict = {
-                                global_headers[i]: row[i] if i < len(row) else ""
-                                for i in range(len(global_headers))
-                            }
-
-                            standardized_row = {
-                                "TXN_DATE": normalize_date(
-                                    row_dict.get("TXN_DATE", row_dict.get("VAL_DATE"))
-                                    or ""
-                                ),
-                                "VAL_DATE": normalize_date(
-                                    row_dict.get("VAL_DATE", row_dict.get("TXN_DATE"))
-                                    or ""
-                                ),
-                                "REFERENCE": row_dict.get("REFERENCE", ""),
-                                "REMARKS": row_dict.get("REMARKS", ""),
-                                "DEBIT": "",
-                                "CREDIT": "",
-                                "BALANCE": row_dict.get("BALANCE", ""),
-                                "Check": "",
-                                "Check 2": "",
-                            }
-
-                            if has_amount and balance_idx != -1:
-                                amount = normalize_money(row_dict.get("AMOUNT", ""))
-                                current_balance = normalize_money(
-                                    row_dict.get("BALANCE", "")
-                                )
-
-                                if prev_balance is not None:
-                                    if (current_balance) < prev_balance:
-                                        standardized_row["DEBIT"] = f"{abs(amount):.2f}"
-                                        standardized_row["CREDIT"] = "0.00"
-                                    else:
-                                        standardized_row["DEBIT"] = "0.00"
-                                        standardized_row["CREDIT"] = (
-                                            f"{abs(amount):.2f}"
-                                        )
-                                else:
-                                    standardized_row["DEBIT"] = "0.00"
-                                    standardized_row["CREDIT"] = "0.00"
-                                prev_balance = normalize_money(current_balance)
-                            else:
-                                standardized_row["DEBIT"] = normalize_money(
-                                    row_dict.get("DEBIT", "0.00")
-                                )
-                                standardized_row["CREDIT"] = normalize_money(
-                                    row_dict.get("CREDIT", "0.00")
-                                )
-                                standardized_row["BALANCE"] = (
-                                    f"{to_float(row_dict.get('BALANCE', '0')):.2f}"
-                                )
-
-                                bal_raw = standardized_row["BALANCE"]
-                                prev_balance = (
-                                    to_float(bal_raw) if bal_raw else prev_balance
-                                )
+                            standardized_row = parse_text_row(row, global_headers)
 
                             transactions.append(standardized_row)
                 else:
