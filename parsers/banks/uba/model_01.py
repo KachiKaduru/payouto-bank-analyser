@@ -6,22 +6,17 @@ from typing import List, Dict
 from utils import (
     normalize_column_name,
     FIELD_MAPPINGS,
-    normalize_date,
+    MAIN_TABLE_SETTINGS,
     to_float,
-    normalize_money,
     parse_text_row,
     calculate_checks,
 )
 
 
-def clean_transaction(row: Dict[str, str]) -> Dict[str, str]:
+def clean_transaction(row: Dict[str, str], prev_balance: float) -> Dict[str, str]:
     """
     Fix misaligned UBA_parser_001 rows where narration fragments spill into DEBIT, CREDIT, or REFERENCE.
-    Rules:
-    - Keep only valid monetary values (must contain decimals).
-    - If DEBIT or CREDIT contains a plain integer and the other side has a valid decimal,
-      treat the integer as junk and move it to REMARKS.
-    - Ensure empty DEBIT/CREDIT are formatted as "0.00".
+    Also fixes false double-entry rows by comparing balance movement.
     """
     remarks_extra = []
 
@@ -33,22 +28,22 @@ def clean_transaction(row: Dict[str, str]) -> Dict[str, str]:
 
     # Helper to check if a string looks like a money value with decimals
     def is_decimal_number(value: str) -> bool:
+        if not isinstance(value, str):
+            return False
         return bool(re.match(r"^\d[\d,]*\.\d{2}$", value.strip()))
 
     # --- Clean DEBIT ---
-    debit = row.get("DEBIT", "").strip()
-    credit = row.get("CREDIT", "").strip()
+    debit = (row.get("DEBIT") or "").strip()
+    credit = (row.get("CREDIT") or "").strip()
 
     if debit:
         if is_decimal_number(debit):
             row["DEBIT"] = debit
         else:
-            # if it's a plain integer and credit has a valid decimal → junk
             if re.match(r"^\d+$", debit) and is_decimal_number(credit):
                 remarks_extra.append(debit)
                 row["DEBIT"] = "0.00"
             else:
-                # fallback: try to extract last valid decimal
                 numbers = re.findall(r"\d[\d,]*\.?\d*", debit)
                 if numbers and is_decimal_number(numbers[-1]):
                     row["DEBIT"] = numbers[-1]
@@ -66,7 +61,6 @@ def clean_transaction(row: Dict[str, str]) -> Dict[str, str]:
         if is_decimal_number(credit):
             row["CREDIT"] = credit
         else:
-            # if it's a plain integer and debit has a valid decimal → junk
             if re.match(r"^\d+$", credit) and is_decimal_number(debit):
                 remarks_extra.append(credit)
                 row["CREDIT"] = "0.00"
@@ -83,7 +77,44 @@ def clean_transaction(row: Dict[str, str]) -> Dict[str, str]:
     else:
         row["CREDIT"] = "0.00"
 
-    # Merge any extras back into remarks
+    # --- Intelligent Balance-Based Fix ---
+    try:
+        # current_balance may be empty or malformed; to_float returns float or None
+        current_balance = None
+        bal_raw = row.get("BALANCE", "")
+        if bal_raw:
+            # Use to_float for robust parsing (handles commas and blanks)
+            current_balance = to_float(bal_raw)
+
+        # Parse debit/credit values to floats (safe fallback to 0.0)
+        try:
+            debit_val = float(row["DEBIT"].replace(",", "")) if row["DEBIT"] else 0.0
+        except Exception:
+            debit_val = 0.0
+        try:
+            credit_val = float(row["CREDIT"].replace(",", "")) if row["CREDIT"] else 0.0
+        except Exception:
+            credit_val = 0.0
+
+        # If both debit & credit are > 0, and we know prev_balance, decide which one is wrong
+        if (
+            debit_val > 0
+            and credit_val > 0
+            and prev_balance is not None
+            and current_balance is not None
+        ):
+            if current_balance > prev_balance:
+                # Balance increased → CREDIT transaction; clear DEBIT
+                row["DEBIT"] = "0.00"
+            elif current_balance < prev_balance:
+                # Balance decreased → DEBIT transaction; clear CREDIT
+                row["CREDIT"] = "0.00"
+            # if equal, ambiguous — keep as-is (or we could clear smaller amount; opted to keep)
+    except Exception:
+        # never fail the cleaner; leave row as-is if something unexpected happens
+        pass
+
+    # Merge extras into remarks
     if remarks_extra:
         row["REMARKS"] = (
             row.get("REMARKS", "") + " " + " ".join(remarks_extra)
@@ -95,196 +126,148 @@ def clean_transaction(row: Dict[str, str]) -> Dict[str, str]:
 def parse(path: str) -> List[Dict[str, str]]:
     transactions = []
     global_headers = None
-    global_header_map = None
+    prev_balance = None  # persist across the whole document
 
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
                 print(f"(uba_parser_001): Processing page {page_num}", file=sys.stderr)
-                # Table extraction settings
-                table_settings = {
-                    "vertical_strategy": "lines",
-                    "horizontal_strategy": "lines",
-                    "explicit_vertical_lines": [],
-                    "explicit_horizontal_lines": [],
-                    "snap_tolerance": 3,
-                    "join_tolerance": 3,
-                    "min_words_vertical": 3,
-                    "min_words_horizontal": 1,
-                    "text_tolerance": 1,
-                }
-                tables = page.extract_tables(table_settings)
+                # Table extraction settings (from MAIN_TABLE_SETTINGS)
+                table_settings = MAIN_TABLE_SETTINGS.copy()
+                tables = page.extract_tables(table_settings) or []
 
-                # 🔑 NEW LOGIC: Skip first table on page 1 if multiple exist
+                # Skip first table on page 1 if there are multiple (Account Summary)
                 if page_num == 1 and len(tables) >= 2:
                     print(
                         f"(uba_parser_001): Skipping first table on page 1",
                         file=sys.stderr,
                     )
-                    tables = [tables[1]]
+                    tables = tables[1:]
 
-                if tables:
-                    for table in tables:
-                        if not table or len(table) < 1:
-                            continue
-
-                        first_row = table[0]
-                        normalized_first_row = [
-                            normalize_column_name(h) if h else "" for h in first_row
-                        ]
-                        is_header_row = any(
-                            h in FIELD_MAPPINGS for h in normalized_first_row if h
-                        )
-
-                        if is_header_row and not global_headers:
-                            global_headers = normalized_first_row
-                            global_header_map = {
-                                i: h
-                                for i, h in enumerate(global_headers)
-                                if h in FIELD_MAPPINGS
-                            }
-                            print(
-                                f"Stored global headers: {global_headers}",
-                                file=sys.stderr,
-                            )
-                            data_rows = table[1:]
-                        elif is_header_row and global_headers:
-                            if normalized_first_row == global_headers:
-                                print(
-                                    f"Skipping repeated header row on page {page_num}",
-                                    file=sys.stderr,
-                                )
-                                data_rows = table[1:]
-                            else:
-                                print(
-                                    f"Different headers on page {page_num}, treating as data",
-                                    file=sys.stderr,
-                                )
-                                data_rows = table
-                        else:
-                            data_rows = table
-
-                        if not global_headers:
-                            if page_num == 1:
-                                print(
-                                    f"(uba_parser_001): Skipping page {page_num} (likely Account Summary)",
-                                    file=sys.stderr,
-                                )
-                                continue
-                            else:
-                                print(
-                                    f"(uba_parser_001): No headers found by page {page_num}, skipping table",
-                                    file=sys.stderr,
-                                )
-                                continue
-
-                        has_amount = "AMOUNT" in global_headers
-                        balance_idx = (
-                            global_headers.index("BALANCE")
-                            if "BALANCE" in global_headers
-                            else -1
-                        )
-                        prev_balance = None
-
-                        for row in data_rows:
-                            if len(row) < len(global_headers):
-                                row.extend([""] * (len(global_headers) - len(row)))
-
-                            row_dict = {
-                                global_headers[i]: (
-                                    row[i] if i < len(global_headers) else ""
-                                )
-                                for i in range(len(global_headers))
-                            }
-
-                            standardized_row = {
-                                "TXN_DATE": normalize_date(
-                                    row_dict.get(
-                                        "TXN_DATE", row_dict.get("VAL_DATE", "")
-                                    )
-                                ),
-                                "VAL_DATE": normalize_date(
-                                    row_dict.get(
-                                        "VAL_DATE", row_dict.get("TXN_DATE", "")
-                                    )
-                                ),
-                                "REFERENCE": row_dict.get("REFERENCE", ""),
-                                "REMARKS": row_dict.get("REMARKS", ""),
-                                "DEBIT": "",
-                                "CREDIT": "",
-                                "BALANCE": normalize_money(row_dict.get("BALANCE", "")),
-                                "Check": "",
-                                "Check 2": "",
-                            }
-
-                            # Handle explicit Opening Balance rows
-                            if (
-                                standardized_row["REMARKS"]
-                                and "opening balance"
-                                in standardized_row["REMARKS"].lower()
-                            ):
-                                standardized_row["DEBIT"] = "0.00"
-                                standardized_row["CREDIT"] = "0.00"
-                            elif has_amount and balance_idx != -1:
-                                amount = to_float(row_dict.get("AMOUNT", ""))
-                                current_balance = to_float(row_dict.get("BALANCE", ""))
-
-                                if prev_balance is not None:
-                                    if current_balance < prev_balance:
-                                        standardized_row["DEBIT"] = f"{abs(amount):.2f}"
-                                        standardized_row["CREDIT"] = "0.00"
-                                    else:
-                                        standardized_row["DEBIT"] = "0.00"
-                                        standardized_row["CREDIT"] = (
-                                            f"{abs(amount):.2f}"
-                                        )
-                                else:
-                                    standardized_row["DEBIT"] = "0.00"
-                                    standardized_row["CREDIT"] = "0.00"
-                                prev_balance = current_balance
-                            else:
-                                standardized_row["DEBIT"] = row_dict.get(
-                                    "DEBIT", "0.00"
-                                )
-                                standardized_row["CREDIT"] = row_dict.get(
-                                    "CREDIT", "0.00"
-                                )
-                                prev_balance = (
-                                    to_float(standardized_row["BALANCE"])
-                                    if standardized_row["BALANCE"]
-                                    else prev_balance
-                                )
-
-                            # 🔑 Clean misaligned rows
-                            standardized_row = clean_transaction(standardized_row)
-
-                            transactions.append(standardized_row)
-                else:
+                if not tables:
                     print(
-                        f"(uba_parser_001): No tables found on page {page_num}, attempting text extraction",
+                        f"(uba_parser_001): No tables found on page {page_num}",
                         file=sys.stderr,
                     )
-                    text = page.extract_text()
-                    if text and global_headers:
+                    # If headers already known, try text fallback for that page
+                    if global_headers:
+                        text = page.extract_text() or ""
                         lines = text.split("\n")
                         current_row = []
                         for line in lines:
                             if re.match(r"^\d{2}[-/.]\d{2}[-/.]\d{4}", line):
                                 if current_row:
-                                    transactions.append(
-                                        parse_text_row(current_row, global_headers)
+                                    standardized_row = parse_text_row(
+                                        current_row, global_headers
                                     )
+                                    # determine current balance before cleaning
+                                    current_balance = (
+                                        to_float(standardized_row.get("BALANCE", ""))
+                                        if standardized_row.get("BALANCE")
+                                        else None
+                                    )
+                                    # Clean using prev_balance
+                                    standardized_row = clean_transaction(
+                                        standardized_row, prev_balance
+                                    )
+                                    transactions.append(standardized_row)
+                                    if current_balance is not None:
+                                        prev_balance = current_balance
                                 current_row = [line]
                             else:
                                 current_row.append(line)
                         if current_row:
-                            transactions.append(
-                                parse_text_row(current_row, global_headers)
+                            standardized_row = parse_text_row(
+                                current_row, global_headers
+                            )
+                            current_balance = (
+                                to_float(standardized_row.get("BALANCE", ""))
+                                if standardized_row.get("BALANCE")
+                                else None
+                            )
+                            standardized_row = clean_transaction(
+                                standardized_row, prev_balance
+                            )
+                            transactions.append(standardized_row)
+                            if current_balance is not None:
+                                prev_balance = current_balance
+                    continue
+
+                # Iterate through all tables on the page (some PDFs split header/data)
+                for table_idx, table in enumerate(tables, start=1):
+                    if not table or len(table) < 1:
+                        continue
+
+                    first_row = table[0]
+                    normalized_first_row = [
+                        normalize_column_name(h) if h else "" for h in first_row
+                    ]
+                    is_header_row = any(
+                        h in FIELD_MAPPINGS for h in normalized_first_row if h
+                    )
+
+                    if is_header_row and not global_headers:
+                        global_headers = normalized_first_row
+                        print(
+                            f"Stored global headers: {global_headers}", file=sys.stderr
+                        )
+                        data_rows = table[1:]
+                    elif is_header_row and global_headers:
+                        if normalized_first_row == global_headers:
+                            # If header repeated but table has data rows, drop header row and use remainder
+                            if len(table) > 1:
+                                data_rows = table[1:]
+                            else:
+                                # header-only table (no rows), skip
+                                data_rows = []
+                        else:
+                            # different header layout - treat entire table as data (best-effort)
+                            data_rows = table
+                    else:
+                        data_rows = table
+
+                    if not global_headers:
+                        # no headers determined yet; skip this table (we can't map columns)
+                        print(
+                            f"(uba_parser_001): No headers found on page {page_num}, table {table_idx}, skipping",
+                            file=sys.stderr,
+                        )
+                        continue
+
+                    # Process data_rows
+                    for row in data_rows:
+                        # parse_text_row expects a list of cell strings + global_headers
+                        standardized_row = parse_text_row(row, global_headers)
+
+                        # If this is an explicit opening balance description, set both to 0.00
+                        if (
+                            standardized_row.get("REMARKS")
+                            and "opening balance" in standardized_row["REMARKS"].lower()
+                        ):
+                            standardized_row["DEBIT"] = "0.00"
+                            standardized_row["CREDIT"] = "0.00"
+                        # Determine current balance BEFORE cleaning (clean uses prev_balance)
+                        current_balance = None
+                        if standardized_row.get("BALANCE"):
+                            current_balance = to_float(
+                                standardized_row.get("BALANCE", "")
                             )
 
-        return calculate_checks(
-            [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
-        )
+                        # Clean using previous balance (not current)
+                        standardized_row = clean_transaction(
+                            standardized_row, prev_balance
+                        )
+
+                        # Append and then update prev_balance from current_balance (if present)
+                        transactions.append(standardized_row)
+                        if current_balance is not None:
+                            prev_balance = current_balance
+
+            # final filter & checks
+            cleaned = [
+                t for t in transactions if t.get("TXN_DATE") or t.get("VAL_DATE")
+            ]
+            return calculate_checks(cleaned)
 
     except Exception as e:
         print(f"Error processing UBA variant statement: {e}", file=sys.stderr)

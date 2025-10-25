@@ -48,6 +48,7 @@ FIELD_MAPPINGS = {
         "txn id",
         "tran id",
         "ref. number",
+        "ref. no",
         "reference number",
         "reference\nnumber",
         "check no",
@@ -103,6 +104,8 @@ FIELD_MAPPINGS = {
         "money in",
         "money in (NGN)",
         "pay in",
+        "lodgement",
+        "lodgements",
     ],
     "BALANCE": [
         "bal",
@@ -182,17 +185,31 @@ def to_float(value: str) -> float:
 def clean_money(s: Optional[str]) -> str:
     """
     Normalizes placeholders like '----', '—', '' to '0.00',
-    strips non-numeric clutter, returns 2dp string.
+    strips non-numeric clutter, handles parentheses as negatives,
+    returns a clean numeric string with 2 decimal places.
     """
     if not s:
         return "0.00"
+
     t = s.strip()
     if t in {"", "-", "—", "----"}:
         return "0.00"
+
+    # Detect parentheses-based negatives: (25.00) → -25.00
+    is_negative = False
+    if t.startswith("(") and t.endswith(")"):
+        is_negative = True
+        t = t[1:-1].strip()
+
+    # Remove any non-numeric clutter except decimal and minus
     if not RX_AMOUNT_LIKE.match(t):
         t = re.sub(r"[^\d.,-]", "", t)
+
     try:
-        return f"{to_float(t):.2f}"
+        value = to_float(t)
+        if is_negative:
+            value = -value
+        return f"{value:.2f}"
     except Exception:
         return "0.00"
 

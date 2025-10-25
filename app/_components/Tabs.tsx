@@ -13,7 +13,7 @@ export default function Tabs() {
 
   return (
     <section className="my-6 border-b border-gray-200">
-      <div className="flex justify-around relative">
+      <div className="grid grid-cols-4 justify-around relative">
         {tabs.map((tab) => {
           const isActive = activeTab === tab;
           return (

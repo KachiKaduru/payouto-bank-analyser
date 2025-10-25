@@ -1,5 +1,4 @@
 import re
-import sys
 import pdfplumber
 from typing import List, Dict
 
