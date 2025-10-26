@@ -67,6 +67,7 @@ FIELD_MAPPINGS = {
         "comment",
         "transaction detail",
         "transaction details",
+        "transaction description",
         "details",
         "descr",
         "REMARKS",
