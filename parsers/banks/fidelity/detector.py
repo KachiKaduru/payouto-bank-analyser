@@ -17,15 +17,15 @@ from .parser_summary import parse as parse_001  # SUMMARY-first variant
 # - min_hits: how many of the patterns must be present to trigger the variant
 VARIANT_PATTERNS: Dict[str, Dict[str, Any]] = {
     "001": {
-        "patterns": [
-            "summary",
-            "beginning balance",
-            "pay in",
-            "pay out",
-            "online banking",
-            "ending balance",
-        ],
-        "min_hits": 3,
+        # "patterns": [
+        #     "summary",
+        #     "beginning balance",
+        #     "pay in",
+        #     "pay out",
+        #     "online banking",
+        #     "ending balance",
+        # ],
+        # "min_hits": 3,
     },
     # "002": {
     #     "patterns": [
