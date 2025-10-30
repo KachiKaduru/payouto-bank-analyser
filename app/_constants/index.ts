@@ -2,7 +2,7 @@
 export const banksList = [
   { value: "access", label: "Access Bank" },
   { value: "alternative", label: "The Alternative Bank" },
-  { value: "ecobank", label: "Ecobank" },
+  { value: "ecobank", label: "Ecobank" },  
   { value: "fcmb", label: "FCMB" },
   { value: "fidelity", label: "Fidelity Bank" },
   { value: "first_bank", label: "First Bank" },
@@ -11,6 +11,7 @@ export const banksList = [
   { value: "jaiz", label: "JAIZ Bank" },
   { value: "lotus", label: "Lotus Bank" },
   { value: "moniepoint", label: "Moniepoint MFB" },
+  { value: "myBankStatement", label: "Custom (My-Bank-Statement)" },
   { value: "nomba", label: "Nomba Bank" },
   { value: "opay", label: "Opay MFB" },
   // { value: "palmpay", label: "Palmpay MFB" },

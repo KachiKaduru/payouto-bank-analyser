@@ -253,24 +253,63 @@ def normalize_date(date_str: str) -> str:
     if re.match(r"(?i)^(total|closing|opening|balance|subtotal)", date_str.strip()):
         return ""
 
-    # Collapse weird spacing and punctuation spacing
-    cleaned = re.sub(r"\s*-\s*", "-", date_str.strip())
-    cleaned = re.sub(r"\s*:\s*", ":", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned)
+    s = date_str.strip()
 
-    # Handle lines broken with newlines (e.g. "11-Dec-\n2024")
+    # Normalize spacing around common separators
+    s = re.sub(r"\s*-\s*", "-", s)
+    s = re.sub(r"\s*/\s*", "/", s)
+    s = re.sub(r"\s*:\s*", ":", s)
+    s = re.sub(r"\s+", " ", s)
+
+    # Collapse spaces occurring *between digits* (e.g. '2 0 2 5' -> '2025')
+    s = re.sub(r"(?<=\d)\s+(?=\d)", "", s)
+
+    # If there are line breaks, first try a "hard collapse" (good for '06/24/202\n5')
     if "\n" in date_str or "\r" in date_str:
-        parts = [p.strip("- ") for p in re.split(r"[\r\n]+", date_str) if p.strip()]
-        if parts:
-            cleaned = "-".join(parts)  # "11-Dec-" + "2024" → "11-Dec-2024"
-        else:
-            cleaned = date_str.strip()
-    else:
-        cleaned = date_str.strip()
+        collapsed = re.sub(r"[\r\n]+", "", s)
+        # Also fix digit-separated-by-spaces again after collapse
+        collapsed = re.sub(r"(?<=\d)\s+(?=\d)", "", collapsed)
+        try:
+            # Fast path: if collapsed parses, take it
+            for fmt in (
+                "%d-%b-%Y",
+                "%d-%b-%y",
+                "%d/%m/%Y",
+                "%d/%m/%y",
+                "%d-%m-%Y",
+                "%d-%m-%y",
+                "%m/%d/%Y",
+                "%m/%d/%y",
+                "%Y-%m-%d",
+                "%Y-%m-%dT%H:%M:%S",
+                "%d %b %Y",
+                "%d.%m.%Y",
+                "%d.%m.%y",
+                "%d %B %Y",
+                "%d-%B-%Y",
+                "%d/%b/%y",
+            ):
+                try:
+                    dt = datetime.strptime(collapsed, fmt)
+                    return dt.strftime("%Y-%m-%d")
+                except ValueError:
+                    pass
+        except Exception:
+            pass
 
-    # Fix truncated 4-digit year like '024-12-09'
-    if re.match(r"^\d{3}-\d{2}-\d{2}$", cleaned):
-        cleaned = "2" + cleaned
+        # Fallback for things like '11-Dec-\n2024' -> '11-Dec-2024'
+        parts = [p.strip("- /:.") for p in re.split(r"[\r\n]+", s) if p.strip()]
+        if parts:
+            # If first chunk already ends with a date separator, keep it; else join with '-'
+            # e.g. '11-Dec-' + '2024' => '11-Dec-2024'; '11 Dec' + '2024' => '11 Dec-2024'
+            if re.search(r"[-/]", parts[0] + "-"):
+                s = "".join(parts) if parts[0].endswith(("/", "-")) else "-".join(parts)
+            else:
+                s = "-".join(parts)
+
+    # Fix truncated 4-digit year like '024-12-09' -> '2024-12-09'
+    if re.match(r"^\d{3}-\d{2}-\d{2}$", s):
+        s = "2" + s
 
     date_formats = [
         "%d-%b-%Y",
@@ -293,13 +332,15 @@ def normalize_date(date_str: str) -> str:
 
     for fmt in date_formats:
         try:
-            dt = datetime.strptime(cleaned, fmt)
+            dt = datetime.strptime(s, fmt)
             return dt.strftime("%Y-%m-%d")
         except ValueError:
             continue
 
     # If nothing matches, keep original so upstream can decide what to do.
-    print(f"Warning: Could not parse date '{date_str}'", file=sys.stderr)
+    print(
+        f"Warning: Could not parse date '{date_str}' (cleaned='{s}')", file=sys.stderr
+    )
     return date_str
 
 
