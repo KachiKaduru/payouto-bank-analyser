@@ -39,6 +39,7 @@ FIELD_MAPPINGS = {
         "date",
         "value\ndate",
         "VAL_DATE",
+        "date/time",
     ],
     "REFERENCE": [
         "reference",

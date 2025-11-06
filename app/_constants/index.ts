@@ -9,6 +9,7 @@ export const banksList = [
   { value: "gtb", label: "GT Bank" },
   { value: "globus", label: "Globus Bank" },
   { value: "jaiz", label: "JAIZ Bank" },
+  { value: "kuda", label: "Kuda MFB" },
   { value: "lotus", label: "Lotus Bank" },
   { value: "moniepoint", label: "Moniepoint MFB" },
   { value: "myBankStatement", label: "Custom (My-Bank-Statement)" },
