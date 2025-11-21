@@ -1,3 +1,4 @@
+import re
 from typing import List, Dict
 import pdfplumber
 
@@ -11,12 +12,42 @@ from utils import (
 
 
 # -----------------------------------------------------
-# Helper — converts raw table row into standardized dict
+# Helper — clean invalid numeric amounts
+# -----------------------------------------------------
+def clean_amount(value: str) -> str:
+    """
+    Returns a sanitized amount:
+    - Rejects values containing letters (e.g. "Page 4")
+    - Rejects values without a decimal point (page numbers)
+    - Returns 0.00 for invalid or empty entries
+    - Otherwise formats as a 2-decimal float
+    """
+    if not value:
+        return "0.00"
+
+    s = value.strip()
+
+    # Reject alphanumeric junk like "Page", "Page 3"
+    if re.search(r"[A-Za-z]", s):
+        return "0.00"
+
+    # Values without decimals are considered invalid for this bank
+    if "." not in s:
+        return "0.00"
+
+    try:
+        return f"{float(s):.2f}"
+    except:
+        return "0.00"
+
+
+# -----------------------------------------------------
+# Helper — convert raw table row → standardized dict
 # -----------------------------------------------------
 def _build_clean_dict(row: List[str], headers: List[str]) -> Dict[str, str]:
     """
     Normalizes row length, maps columns → utils.parse_text_row,
-    and filters out footer/summary rows.
+    cleans DEBIT/CREDIT, and filters out footer/summary rows.
     """
 
     if not headers:
@@ -28,14 +59,21 @@ def _build_clean_dict(row: List[str], headers: List[str]) -> Dict[str, str]:
 
     parsed = parse_text_row(row, headers)
 
-    # Skip summary rows
+    # Skip summary or total rows
     txn_date = (parsed.get("TXN_DATE") or "").lower()
     if txn_date.startswith(("total", "closing", "opening", "subtotal")):
         return None
 
+    # Clean suspicious amounts (often page numbers)
+    parsed["DEBIT"] = clean_amount(parsed.get("DEBIT", ""))
+    parsed["CREDIT"] = clean_amount(parsed.get("CREDIT", ""))
+
     return parsed
 
 
+# -----------------------------------------------------
+# Main parser for Providus (variant) statement
+# -----------------------------------------------------
 def parse(path: str) -> List[Dict[str, str]]:
     transactions = []
     global_headers = None
@@ -57,18 +95,17 @@ def parse(path: str) -> List[Dict[str, str]]:
         if len(longest_table) < 2:
             return []  # no data rows
 
-        # First row should contain the headers
+        # The first row contains the headers
         header_row = longest_table[0]
 
         # Normalize headers
         global_headers = [normalize_column_name(h) if h else "" for h in header_row]
 
-        # Ensure they truly contain mapped fields
+        # Must contain mapped field names
         if not any(h in FIELD_MAPPINGS for h in global_headers):
-            # If headers failed, abort – something unexpected
             return []
 
-        # Process page 1 data rows
+        # Parse page 1 rows
         for raw in longest_table[1:]:
             cleaned = _build_clean_dict(raw, global_headers)
             if cleaned:
@@ -88,28 +125,26 @@ def parse(path: str) -> List[Dict[str, str]]:
                 if not table or len(table) < 1:
                     continue
 
-                # Detect if first row is a header row
-                possible_header = [
+                # Detect if the first row is a repeated header
+                candidate_header = [
                     normalize_column_name(h) if h else "" for h in table[0]
                 ]
 
-                is_header_row = any(h in FIELD_MAPPINGS for h in possible_header)
+                is_header_row = any(col in FIELD_MAPPINGS for col in candidate_header)
 
-                # Skip header row if it matches global headers
-                if is_header_row:
-                    if possible_header == global_headers:
-                        data_rows = table[1:]
-                    else:
-                        # Unknown header style – treat whole table as data
-                        data_rows = table
+                # Skip duplicate page headers
+                if is_header_row and candidate_header == global_headers:
+                    data_rows = table[1:]
                 else:
                     data_rows = table
 
-                # Parse data rows
+                # Parse rows
                 for raw in data_rows:
                     cleaned = _build_clean_dict(raw, global_headers)
                     if cleaned:
                         transactions.append(cleaned)
 
-    # Final validation and debit/credit checks
+    # -----------------------------------------------------------
+    # Final validation (enzymes: date fixing, balance checks, etc.)
+    # -----------------------------------------------------------
     return calculate_checks(transactions)

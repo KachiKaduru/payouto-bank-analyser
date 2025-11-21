@@ -256,6 +256,9 @@ def normalize_date(date_str: str) -> str:
 
     s = date_str.strip()
 
+    # Remove trailing 'Page', 'Page 2', 'Page-4', etc.
+    s = re.sub(r"[Pp]age[\s\-]?\d*$", "", s).strip()
+
     # Normalize spacing around common separators
     s = re.sub(r"\s*-\s*", "-", s)
     s = re.sub(r"\s*/\s*", "/", s)
@@ -428,9 +431,9 @@ def looks_like_year_artifact(row: Dict[str, str]) -> bool:
     credit = (row.get("CREDIT") or "").strip()
     balance = (row.get("BALANCE") or "").strip()
     money_empty = debit in {"", "0.00"} and credit in {"", "0.00"} and balance == ""
-    year_only_dates = is_two_digit_year(row.get("TXN_DATE")) and is_two_digit_year(
-        row.get("VAL_DATE")
-    )
+    year_only_dates = is_two_digit_year(
+        row.get("TXN_DATE") or ""
+    ) and is_two_digit_year(row.get("VAL_DATE") or "")
     return no_remarks and money_empty and year_only_dates
 
 
@@ -524,6 +527,21 @@ def decrypt_pdf(
             writer = PdfWriter()
             for page in reader.pages:
                 writer.add_page(page)
+            # Preserve original metadata (producer, author, etc.)
+            if reader.metadata:
+                try:
+                    metadata = {
+                        (k if k.startswith("/") else f"/{k}"): str(v)
+                        for k, v in reader.metadata.items()
+                        if v is not None
+                    }
+                    if metadata:
+                        writer.add_metadata(metadata)
+                except Exception as meta_err:
+                    print(
+                        f"Warning: Failed to copy PDF metadata: {meta_err}",
+                        file=sys.stderr,
+                    )
             writer.write(temp_file)
             temp_file_path = temp_file.name
             effective_path = temp_file_path
