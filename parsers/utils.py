@@ -393,9 +393,15 @@ def calculate_checks(transactions: List[Dict[str, str]]) -> List[Dict[str, str]]
         if prev_balance is not None:
             expected = round(prev_balance - debit + credit, 2)
             actual = round(current_balance, 2)
-            check = abs(expected - actual) <= TOLERANCE
-            txn["Check"] = "TRUE" if check else "FALSE"
-            txn["Check 2"] = f"{abs(expected - actual):.2f}" if not check else "0.00"
+            diff = abs(expected - actual)
+
+            # Guard clause for small differences
+            if diff < 0.1:
+                txn["Check"] = "TRUE"
+            else:
+                txn["Check"] = "FALSE"
+
+            txn["Check 2"] = f"{diff:.2f}"
         else:
             txn["Check"] = "TRUE"
             txn["Check 2"] = "0.00"
