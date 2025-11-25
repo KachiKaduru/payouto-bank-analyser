@@ -348,6 +348,26 @@ def normalize_date(date_str: str) -> str:
     return date_str
 
 
+def normalize_whitespace(text: str) -> str:
+    """
+    Merge multi-line narration into 1 line, collapse repeated spaces,
+    and insert a space after slashes where needed.
+    """
+    if not text:
+        return ""
+
+    # Replace newline with space
+    text = text.replace("\n", " ")
+
+    # Collapse multiple spaces
+    text = re.sub(r"\s+", " ", text)
+
+    # Fix slashes: "ABC/DEF" → "ABC / DEF"
+    text = re.sub(r"/(?=\w)", " / ", text)
+
+    return text.strip()
+
+
 # ------------------------
 # COLUMN / ROW HELPERS
 # ------------------------

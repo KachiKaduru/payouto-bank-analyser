@@ -2,12 +2,14 @@ import pdfplumber
 import re
 import sys
 from typing import Callable, Optional, List, Dict
-from .universal import parse as parse_universal
-from .model_01 import parse as parse_001  # Import the new parser
+from universal import parse as parse_universal
+from model_01 import parse as parse_001
+from model_02 import parse as parse_002
 
 # Map variant keys directly to their parser functions
 PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
     "001": parse_001,
+    "002": parse_002,
     # Add future variants here, e.g. "002": parse_002
 }
 
@@ -15,6 +17,10 @@ VARIANT_PATTERNS = {
     "001": [
         "Here is your Account Summary",
         re.compile(r"Account Summary", re.IGNORECASE),
+    ],
+    "002": [
+        "ACCOUNT STATEMENT (",
+        re.compile(r"ACCOUNT STATEMENT \(", re.IGNORECASE),
     ],
     # Add more patterns for other variants if needed
 }
