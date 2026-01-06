@@ -1,9 +1,8 @@
 import sys
-import re
 import pdfplumber
 from typing import List, Dict
 
-from utils import (
+from app.parsers.utils import (
     normalize_column_name,
     FIELD_MAPPINGS,
     MAIN_TABLE_SETTINGS,
@@ -73,7 +72,7 @@ def parse(path: str) -> List[Dict[str, str]]:
                             transactions.append(standardized_row)
                 else:
                     print(
-                        f"(fcmb): No tables found on page {page_num}, attempting text extraction",
+                        f"(fcmb): No tables found on page {page_num}",
                         file=sys.stderr,
                     )
 

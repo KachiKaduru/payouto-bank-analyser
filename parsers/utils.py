@@ -5,6 +5,8 @@ from datetime import datetime
 from PyPDF2 import PdfReader, PdfWriter
 import tempfile
 
+# from app.parsers.models import TransactionRow
+
 TOLERANCE = 0.01
 
 # ------------------------
@@ -16,6 +18,7 @@ FIELD_MAPPINGS = {
         "txn date",
         "trans",
         "trans date",
+        "tran date",
         "transdate",
         "transaction date",
         "date",
@@ -174,7 +177,7 @@ RX_MULTI_WS = re.compile(r"\s+")
 # ------------------------
 def to_float(value: str) -> float:
     value = value.strip() if value else ""
-    if not value or value in {"-", ""}:
+    if not value or value in {"-", "", "--"}:
         return 0.0
     try:
         cleaned = re.sub(r"[^\d.-]", "", value)
@@ -268,6 +271,12 @@ def normalize_date(date_str: str) -> str:
     # Collapse spaces occurring *between digits* (e.g. '2 0 2 5' -> '2025')
     s = re.sub(r"(?<=\d)\s+(?=\d)", "", s)
 
+    # Handle formats like '01Jan,2025' or '1Jan,2025'
+    m = re.match(r"^(\d{1,2})([A-Za-z]{3,9}),(\d{4})$", s)
+    if m:
+        day, month, year = m.groups()
+        s = f"{day} {month} {year}"
+
     # If there are line breaks, first try a "hard collapse" (good for '06/24/202\n5')
     if "\n" in date_str or "\r" in date_str:
         collapsed = re.sub(r"[\r\n]+", "", s)
@@ -348,26 +357,6 @@ def normalize_date(date_str: str) -> str:
     return date_str
 
 
-def normalize_whitespace(text: str) -> str:
-    """
-    Merge multi-line narration into 1 line, collapse repeated spaces,
-    and insert a space after slashes where needed.
-    """
-    if not text:
-        return ""
-
-    # Replace newline with space
-    text = text.replace("\n", " ")
-
-    # Collapse multiple spaces
-    text = re.sub(r"\s+", " ", text)
-
-    # Fix slashes: "ABC/DEF" → "ABC / DEF"
-    text = re.sub(r"/(?=\w)", " / ", text)
-
-    return text.strip()
-
-
 # ------------------------
 # COLUMN / ROW HELPERS
 # ------------------------
@@ -393,15 +382,9 @@ def calculate_checks(transactions: List[Dict[str, str]]) -> List[Dict[str, str]]
         if prev_balance is not None:
             expected = round(prev_balance - debit + credit, 2)
             actual = round(current_balance, 2)
-            diff = abs(expected - actual)
-
-            # Guard clause for small differences
-            if diff < 0.1:
-                txn["Check"] = "TRUE"
-            else:
-                txn["Check"] = "FALSE"
-
-            txn["Check 2"] = f"{diff:.2f}"
+            check = abs(expected - actual) <= TOLERANCE
+            txn["Check"] = "TRUE" if check else "FALSE"
+            txn["Check 2"] = f"{abs(expected - actual):.2f}" if not check else "0.00"
         else:
             txn["Check"] = "TRUE"
             txn["Check 2"] = "0.00"
@@ -436,6 +419,7 @@ def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
     bal_raw = (row_dict.get("BALANCE", "") or "").strip()
     standardized_row["BALANCE"] = f"{to_float(bal_raw):.2f}" if bal_raw else ""
 
+    # return TransactionRow(**standardized_row)
     return standardized_row
 
 
