@@ -2,6 +2,7 @@
 export const banksList = [
   { value: "access", label: "Access Bank" },
   { value: "alternative", label: "The Alternative Bank" },
+  { value: "altpro", label: "Alt Pro Bank" },
   { value: "ecobank", label: "Ecobank" },  
   { value: "fcmb", label: "FCMB" },
   { value: "fidelity", label: "Fidelity Bank" },
