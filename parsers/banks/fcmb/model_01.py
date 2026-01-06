@@ -4,7 +4,7 @@ import re
 import pdfplumber
 from typing import List, Dict, Optional
 
-from app.parsers.utils import (
+from utils import (
     normalize_date,
     to_float,
     calculate_checks,

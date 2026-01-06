@@ -4,7 +4,7 @@ import sys
 import pdfplumber
 from typing import List, Dict, Optional
 
-from app.parsers.utils import normalize_date, to_float, calculate_checks
+from utils import normalize_date, to_float, calculate_checks
 
 DATE_RX = re.compile(r"^(?P<d>\d{2}\s+[A-Za-z]{3}\s+\d{4})\b")
 MONEY_RX = re.compile(r"^-?\d{1,3}(?:,\d{3})*(?:\.\d{2})?$")

@@ -2,7 +2,7 @@ import sys
 import pdfplumber
 from typing import List, Dict
 
-from app.parsers.utils import (
+from utils import (
     normalize_column_name,
     FIELD_MAPPINGS,
     MAIN_TABLE_SETTINGS,
