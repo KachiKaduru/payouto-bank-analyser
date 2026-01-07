@@ -10,7 +10,6 @@ from .model_02 import parse as parse_002
 PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
     "001": parse_001,
     "002": parse_002,
-    # Add future variants here, e.g. "002": parse_002
 }
 
 VARIANT_PATTERNS = {
@@ -18,10 +17,7 @@ VARIANT_PATTERNS = {
         "Here is your Account Summary",
         re.compile(r"Account Summary", re.IGNORECASE),
     ],
-    "002": [
-        "ACCOUNT STATEMENT (",
-        re.compile(r"ACCOUNT STATEMENT \(", re.IGNORECASE),
-    ],
+    "002": ["Account Statement", "Your Transactions"],
     # Add more patterns for other variants if needed
 }
 
