@@ -1,5 +1,4 @@
 # banks/fidelity/model_02.py
-
 import sys
 import re
 from typing import List, Dict, Optional
@@ -19,17 +18,16 @@ DATE_RE = re.compile(r"\b\d{2}-[A-Za-z]{3}-\d{4}\b")  # 01-Jul-2025
 AMT_RE = re.compile(r"\b\d[\d,]*\.\d{2}\b")  # 4,221,845.19 / 53.75
 
 
-CHANNEL_PATTERNS = [
-    "NIP Transfer",
-    "Online Banking",
-    "Mobile Banking",
-    "Internet Banking",
-    "POS",
-    "ATM",
-    "USSD",
-    "Others",
-    "NIP",  # keep NIP after "NIP Transfer" so it doesn't steal the match
-]
+CHANNEL_PATTERNS = {
+    "NIP Transfer": ["NIP", "Transfer"],
+    "Online Banking": ["Online", "Banking"],
+    "Mobile Banking": ["Mobile"],
+    "Internet Banking": ["Internet"],
+    "POS": ["POS"],
+    "ATM": ["ATM"],
+    "USSD": ["USSD"],
+    "Others": ["Others"],
+}
 
 
 def _is_fidelity_model02_header(row: List[Optional[str]]) -> bool:
@@ -48,58 +46,85 @@ def _is_fidelity_model02_header(row: List[Optional[str]]) -> bool:
     return all(any(req == c for c in norm) for req in required)
 
 
-def _extract_channel_and_remarks(text: str) -> (str, str):
-    """
-    Given a text that looks like:
-      "ELECTRONIC MONEY TRANSFER LEVY - 01-07-2025 Others"
-    or:
-      "MSURSHIMA COMFO/kitchen /AT68_TRF2MPTankma19400932 NIP Transfer"
-    return (channel, remarks).
-    """
+def _extract_channel_and_remarks(text: str) -> tuple[str, str]:
     clean = re.sub(r"\s+", " ", text).strip()
 
-    # Try longest / most specific channels first
-    for ch in sorted(CHANNEL_PATTERNS, key=len, reverse=True):
-        # match channel at very end
-        pat = re.compile(rf"(.*)\b{re.escape(ch)}\s*$", re.IGNORECASE)
-        m = pat.match(clean)
-        if m:
-            remarks = (m.group(1) or "").strip()
-            # normalize casing to your canonical labels
-            channel = ch
-            return channel, remarks
+    # Try longer canonical channel names first (more specific)
+    for channel in sorted(CHANNEL_PATTERNS.keys(), key=len, reverse=True):
+        aliases = CHANNEL_PATTERNS[channel]
 
-    # If no channel match, keep all as remarks
+        for alias in aliases:
+            # Match alias at end
+            # We'll build a "tail" regex: (.*) <alias>$
+            alias_re = _alias_to_regex(alias)
+            m = re.match(rf"^(.*)({alias_re.pattern})\s*$", clean, flags=re.IGNORECASE)
+            if m:
+                remarks = (m.group(1) or "").strip()
+                return channel, remarks
+
     return "", clean
+
+
+def _alias_to_regex(alias) -> re.Pattern:
+    """
+    alias can be:
+      - a string: "NIP Transfer"
+      - a list of words: ["NIP", "Transfer"]
+    Matches even if words are split by any whitespace/newlines.
+    """
+    if isinstance(alias, list):
+        words = [re.escape(w) for w in alias if str(w).strip()]
+    else:
+        words = [re.escape(w) for w in str(alias).split() if w.strip()]
+
+    if not words:
+        return re.compile(r"^$")
+
+    return re.compile(r"\b" + r"\s+".join(words) + r"\b", re.IGNORECASE)
+
+
+def _find_any_channel_in_text(text: str) -> str:
+    for channel in sorted(CHANNEL_PATTERNS.keys(), key=len, reverse=True):
+        for alias in CHANNEL_PATTERNS[channel]:
+            if _alias_to_regex(alias).search(text):
+                return channel
+    return ""
 
 
 def _parse_compact_row(cell: str) -> Optional[Dict[str, str]]:
     """
     More robust Fidelity model_02 collapsed-row parser.
 
-    Works for:
-      - multi-line rows where channel is split ("NIP" + "Transfer")
-      - rows that start with narration text (not channel)
-      - one-line rows (no linebreaks)
+    Improvements:
+      - preserves text BEFORE the first date (some PDFs place narration/channel there)
+      - still extracts AMOUNT/BALANCE from after_dates (same logic as before)
+      - uses CHANNEL_PATTERNS-driven rescue instead of hardcoded NIP/Transfer
     """
     if not cell or not str(cell).strip():
         return None
 
     raw = str(cell)
+    # Keep a whitespace-normalized version for slicing + regex searching
     all_text = re.sub(r"\s+", " ", raw.replace("\n", " ")).strip()
 
-    # Find the first two dates anywhere in the cell
-    dates = DATE_RE.findall(all_text)
-    if len(dates) < 2:
+    date_iters = list(DATE_RE.finditer(all_text))
+    if len(date_iters) < 2:
         return None
 
-    txn_date_raw, val_date_raw = dates[0], dates[1]
+    txn_date_raw = date_iters[0].group(0)
+    val_date_raw = date_iters[1].group(0)
+
+    # Text before the first date (can contain narration/channel fragments in some PDFs)
+    before_first_date = all_text[: date_iters[0].start()].strip()
 
     # Slice the string to what's after the 2nd date (narration + channel + numbers)
-    date_iters = list(DATE_RE.finditer(all_text))
-    after_dates = (
-        all_text[date_iters[1].end() :].strip() if len(date_iters) >= 2 else all_text
-    )
+    after_dates = all_text[date_iters[1].end() :].strip()
+
+    # Detect parentheses-based negative balance BEFORE extraction
+    is_balance_negative = False
+    paren_balance_match = re.search(r"\(\s*\d[\d,]*\.\d{2}\s*\)", after_dates)
+    if paren_balance_match:
+        is_balance_negative = True
 
     # Pull all money values from after_dates first (fallback to whole text)
     amts = AMT_RE.findall(after_dates)
@@ -108,40 +133,47 @@ def _parse_compact_row(cell: str) -> Optional[Dict[str, str]]:
     if len(amts) < 2:
         return None
 
-    balance_raw = amts[-1]
     amount_raw = amts[-2]
+    balance_raw = amts[-1]
 
-    # Remove trailing balance and amount from the text
-    # (we remove from the right to avoid killing earlier similar numbers)
+    if is_balance_negative:
+        balance_raw = f"({balance_raw})"
+
+    # Remove trailing balance and amount from the text (from the right)
     tmp = after_dates
-    # remove balance
+
     bpos = tmp.rfind(balance_raw)
     if bpos != -1:
         tmp = (tmp[:bpos] + tmp[bpos + len(balance_raw) :]).strip()
-    # remove amount
+
     apos = tmp.rfind(amount_raw)
     if apos != -1:
         tmp = (tmp[:apos] + tmp[apos + len(amount_raw) :]).strip()
 
-    # Whatever remains should end with the channel label
-    channel, remarks = _extract_channel_and_remarks(tmp)
+    # NEW: concatenate before-first-date + tmp so we don't lose any “first line” info
+    combined = " ".join([before_first_date, tmp]).strip()
 
-    # If channel is empty but the ORIGINAL cell contains "Transfer" and "NIP" split oddly,
-    # try a small rescue:
+    # Extract channel and remarks based on channel being at the END
+    channel, remarks = _extract_channel_and_remarks(combined)
+
+    # Rescue: if channel is still empty, try finding any channel anywhere in the original cell
     if not channel:
-        if re.search(r"\bNIP\b", all_text, re.IGNORECASE) and re.search(
-            r"\bTransfer\b", all_text, re.IGNORECASE
-        ):
-            channel = "NIP Transfer"
-            # remove those words from remarks if they appear at end
+        found = _find_any_channel_in_text(raw) or _find_any_channel_in_text(all_text)
+        if found:
+            channel = found
+            # Best-effort cleanup: if remarks ends with that channel, strip it
+            # (handles cases where channel exists but isn't neatly at end)
             remarks = re.sub(
-                r"\bNIP\s+Transfer\b\s*$", "", remarks, flags=re.IGNORECASE
+                rf"\b{re.escape(found)}\b\s*$",
+                "",
+                remarks,
+                flags=re.IGNORECASE,
             ).strip()
 
     return {
         "TXN_DATE": normalize_date(txn_date_raw),
         "VAL_DATE": normalize_date(val_date_raw),
-        "REFERENCE": channel.strip() or "",  # channel goes into REFERENCE
+        "REFERENCE": channel.strip() or "",
         "REMARKS": remarks.strip(),
         "AMOUNT": normalize_money(amount_raw),
         "BALANCE": normalize_money(balance_raw),
@@ -211,7 +243,8 @@ def parse(path: str) -> List[Dict[str, str]]:
                                 "REMARKS": parsed["REMARKS"],
                                 "DEBIT": debit,
                                 "CREDIT": credit,
-                                "BALANCE": f"{bal:.2f}",
+                                "BALANCE": parsed["BALANCE"],
+                                # "BALANCE": f"{bal:.2f}",
                                 "Check": "",
                                 "Check 2": "",
                             }
