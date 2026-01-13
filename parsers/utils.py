@@ -61,6 +61,7 @@ FIELD_MAPPINGS = {
         "channel",
         "DOC NO.",
         "cheque\nnumber",
+        "category",
     ],
     "REMARKS": [
         "remarks",
