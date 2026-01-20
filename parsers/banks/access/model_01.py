@@ -16,7 +16,8 @@ RX_AMOUNT = re.compile(r"[-\d,]+\.\d{2}")
 
 def extract_fields(remarks: str) -> Dict[str, str]:
     date_pattern = re.compile(r"\b\d{2}-[A-Za-z]{3}-\d{4}\b")
-    amount_pattern = re.compile(r"\d[\d,]*\.\d{2}")
+    amount_pattern = RX_AMOUNT
+    # amount_pattern = re.compile(r"\d[\d,]*\.\d{2}")
 
     # Work on a copy so we can strip things out
     cleaned = remarks
