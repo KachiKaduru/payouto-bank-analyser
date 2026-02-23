@@ -48,7 +48,6 @@ def find_opening_balance_from_lines(lines: List[str]) -> Optional[float]:
                     return to_float(strip_cr_dr(m2.group(0)))
     return None
 
-
 def build_transaction(
     block_lines: List[str],
     date_idx_in_block: int,

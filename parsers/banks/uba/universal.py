@@ -6,9 +6,6 @@ from typing import List, Dict
 from utils import (
     normalize_column_name,
     FIELD_MAPPINGS,
-    normalize_date,
-    to_float,
-    normalize_money,
     parse_text_row,
     calculate_checks,
 )
@@ -163,74 +160,8 @@ def parse(path: str) -> List[Dict[str, str]]:
                             )
                             continue
 
-                        has_amount = "AMOUNT" in global_headers
-                        balance_idx = (
-                            global_headers.index("BALANCE")
-                            if "BALANCE" in global_headers
-                            else -1
-                        )
-                        prev_balance = None
-
                         for row in data_rows:
-                            if len(row) < len(global_headers):
-                                row.extend([""] * (len(global_headers) - len(row)))
-
-                            row_dict = {
-                                global_headers[i]: (
-                                    row[i] if i < len(global_headers) else ""
-                                )
-                                for i in range(len(global_headers))
-                            }
-
-                            standardized_row = {
-                                "TXN_DATE": normalize_date(
-                                    row_dict.get(
-                                        "TXN_DATE", row_dict.get("VAL_DATE", "")
-                                    )
-                                ),
-                                "VAL_DATE": normalize_date(
-                                    row_dict.get(
-                                        "VAL_DATE", row_dict.get("TXN_DATE", "")
-                                    )
-                                ),
-                                "REFERENCE": row_dict.get("REFERENCE", ""),
-                                "REMARKS": row_dict.get("REMARKS", ""),
-                                "DEBIT": "",
-                                "CREDIT": "",
-                                "BALANCE": normalize_money(row_dict.get("BALANCE", "")),
-                                "Check": "",
-                                "Check 2": "",
-                            }
-
-                            if has_amount and balance_idx != -1:
-                                amount = to_float(row_dict.get("AMOUNT", ""))
-                                current_balance = to_float(row_dict.get("BALANCE", ""))
-
-                                if prev_balance is not None:
-                                    if current_balance < prev_balance:
-                                        standardized_row["DEBIT"] = f"{abs(amount):.2f}"
-                                        standardized_row["CREDIT"] = "0.00"
-                                    else:
-                                        standardized_row["DEBIT"] = "0.00"
-                                        standardized_row["CREDIT"] = (
-                                            f"{abs(amount):.2f}"
-                                        )
-                                else:
-                                    standardized_row["DEBIT"] = "0.00"
-                                    standardized_row["CREDIT"] = "0.00"
-                                prev_balance = current_balance
-                            else:
-                                standardized_row["DEBIT"] = row_dict.get(
-                                    "DEBIT", "0.00"
-                                )
-                                standardized_row["CREDIT"] = row_dict.get(
-                                    "CREDIT", "0.00"
-                                )
-                                prev_balance = (
-                                    to_float(standardized_row["BALANCE"])
-                                    if standardized_row["BALANCE"]
-                                    else prev_balance
-                                )
+                            standardized_row = parse_text_row(row, global_headers)
 
                             # 🔑 Clean misaligned rows
                             standardized_row = clean_transaction(standardized_row)

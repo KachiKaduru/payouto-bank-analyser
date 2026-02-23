@@ -5,6 +5,8 @@ from datetime import datetime
 from PyPDF2 import PdfReader, PdfWriter
 import tempfile
 
+# from app.parsers.models import TransactionRow
+
 TOLERANCE = 0.01
 
 # ------------------------
@@ -16,6 +18,7 @@ FIELD_MAPPINGS = {
         "txn date",
         "trans",
         "trans date",
+        "tran date",
         "transdate",
         "transaction date",
         "date",
@@ -57,6 +60,8 @@ FIELD_MAPPINGS = {
         "chq no",
         "channel",
         "DOC NO.",
+        "cheque\nnumber",
+        "category",
     ],
     "REMARKS": [
         "remarks",
@@ -74,6 +79,7 @@ FIELD_MAPPINGS = {
         "REMARKS",
         "description/payee/memo",
         "TRANSACCTNAMION DESC",
+        "transaction remarks",
     ],
     "DEBIT": [
         "dr",
@@ -174,7 +180,7 @@ RX_MULTI_WS = re.compile(r"\s+")
 # ------------------------
 def to_float(value: str) -> float:
     value = value.strip() if value else ""
-    if not value or value in {"-", ""}:
+    if not value or value in {"-", "", "--"}:
         return 0.0
     try:
         cleaned = re.sub(r"[^\d.-]", "", value)
@@ -256,6 +262,9 @@ def normalize_date(date_str: str) -> str:
 
     s = date_str.strip()
 
+    # Remove trailing 'Page', 'Page 2', 'Page-4', etc.
+    s = re.sub(r"[Pp]age[\s\-]?\d*$", "", s).strip()
+
     # Normalize spacing around common separators
     s = re.sub(r"\s*-\s*", "-", s)
     s = re.sub(r"\s*/\s*", "/", s)
@@ -264,6 +273,12 @@ def normalize_date(date_str: str) -> str:
 
     # Collapse spaces occurring *between digits* (e.g. '2 0 2 5' -> '2025')
     s = re.sub(r"(?<=\d)\s+(?=\d)", "", s)
+
+    # Handle formats like '01Jan,2025' or '1Jan,2025'
+    m = re.match(r"^(\d{1,2})([A-Za-z]{3,9}),(\d{4})$", s)
+    if m:
+        day, month, year = m.groups()
+        s = f"{day} {month} {year}"
 
     # If there are line breaks, first try a "hard collapse" (good for '06/24/202\n5')
     if "\n" in date_str or "\r" in date_str:
@@ -407,6 +422,7 @@ def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
     bal_raw = (row_dict.get("BALANCE", "") or "").strip()
     standardized_row["BALANCE"] = f"{to_float(bal_raw):.2f}" if bal_raw else ""
 
+    # return TransactionRow(**standardized_row)
     return standardized_row
 
 
@@ -428,9 +444,9 @@ def looks_like_year_artifact(row: Dict[str, str]) -> bool:
     credit = (row.get("CREDIT") or "").strip()
     balance = (row.get("BALANCE") or "").strip()
     money_empty = debit in {"", "0.00"} and credit in {"", "0.00"} and balance == ""
-    year_only_dates = is_two_digit_year(row.get("TXN_DATE")) and is_two_digit_year(
-        row.get("VAL_DATE")
-    )
+    year_only_dates = is_two_digit_year(
+        row.get("TXN_DATE") or ""
+    ) and is_two_digit_year(row.get("VAL_DATE") or "")
     return no_remarks and money_empty and year_only_dates
 
 
@@ -524,6 +540,21 @@ def decrypt_pdf(
             writer = PdfWriter()
             for page in reader.pages:
                 writer.add_page(page)
+            # Preserve original metadata (producer, author, etc.)
+            if reader.metadata:
+                try:
+                    metadata = {
+                        (k if k.startswith("/") else f"/{k}"): str(v)
+                        for k, v in reader.metadata.items()
+                        if v is not None
+                    }
+                    if metadata:
+                        writer.add_metadata(metadata)
+                except Exception as meta_err:
+                    print(
+                        f"Warning: Failed to copy PDF metadata: {meta_err}",
+                        file=sys.stderr,
+                    )
             writer.write(temp_file)
             temp_file_path = temp_file.name
             effective_path = temp_file_path

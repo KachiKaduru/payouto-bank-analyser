@@ -4,10 +4,12 @@ import sys
 from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
 from .model_01 import parse as parse_model_01
+from .model_02 import parse as parse_model_02
 
 # Map variant keys directly to their parser functions
 PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
     "model_01": parse_model_01,
+    "model_02": parse_model_02,
 }
 
 # Define text patterns unique to each FCMB statement variant
@@ -18,6 +20,11 @@ VARIANT_PATTERNS = {
         "end date",
         "txn date",
         "val date",
+    ],
+    "model_02": [
+        "first city monument bank limited",
+        "a subsidiary of fcmb group plc",
+        "overdraft limit",
     ],
     # Add new variants like model_02 here when discovered
 }
