@@ -22,14 +22,20 @@ MONEY3_ANY = re.compile(
 # Timestamp markers
 RX_PREFIX_LINE = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:)$")
 RX_FULL_LINE = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})$")
+
 RX_PREFIX_ANY = re.compile(r"(\d{4}-\d{2}-\d{2}T\d{2}:)")
 RX_FULL_ANY = re.compile(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})")
 RX_MMSS_LINE = re.compile(r"^\d{2}:\d{2}$")
 RX_MMSS_ANY = re.compile(r"(\d{2}:\d{2})(?!\d)")
 
+
+# NEW: timestamp at start of line, may have trailing narration
+RX_PREFIX_LEAD = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:)\s*(.*)$")
+RX_FULL_LEAD = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\s*(.*)$")
+
 # Reference tokens that often indicate row starts (expanded with PUR|)
 RX_REF_TOKEN = re.compile(
-    r"\b(?:AP_TRSF\|[^ \t\n]+|TRF\|[^ \t\n]+|MIT\|HYD\|[^ \t\n]+|PUR\|[^ \t\n]+)\b"
+    r"\b(?:AP_TRSF\|[^ \t\n]+|TRF\|[^ \t\n]+|MIT\|(?:HYD|TMP|HBP)\|[^ \t\n]+|PUR\|[^ \t\n]+)\b"
 )
 
 # --- Helpers ----------------------------------------------------------------
@@ -127,15 +133,18 @@ def _split_inline_boundaries(line: str) -> List[str]:
 
 
 # --- Main -------------------------------------------------------------------
-
-
 def parse(path: str) -> List[Dict[str, str]]:
     transactions: List[Dict[str, str]] = []
+
+    # IMPORTANT: keep state across pages
+    current_prefix = None
+    buf: List[str] = []
 
     try:
         with pdfplumber.open(path) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
                 print(f"(moniepoint): Processing page {page_num}", file=sys.stderr)
+
                 raw_lines = [
                     ln
                     for ln in (page.extract_text() or "").split("\n")
@@ -149,24 +158,21 @@ def parse(path: str) -> List[Dict[str, str]]:
                 for ln in raw_lines:
                     lines.extend(_split_inline_boundaries(ln))
 
-                current_prefix = None
-                buf: List[str] = []
-
                 i = 0
                 while i < len(lines):
-                    l = lines[i]
+                    l = lines[i].strip()
 
-                    m_full_line = RX_FULL_LINE.match(l)
-                    m_full_any = RX_FULL_ANY.fullmatch(l)
-                    m_pref_line = RX_PREFIX_LINE.match(l)
-                    m_pref_any = RX_PREFIX_ANY.fullmatch(l)
-                    is_mmss_line = RX_MMSS_LINE.match(l) is not None
-                    is_mmss_any = RX_MMSS_ANY.fullmatch(l) is not None
+                    # --- NEW: lead timestamp handling (timestamp + trailing narration on same line)
+                    m_full_lead = RX_FULL_LEAD.match(l)
+                    m_pref_lead = RX_PREFIX_LEAD.match(l)
 
-                    # New timestamp (full or prefix) → finalize previous row
-                    if m_full_line or m_full_any or m_pref_line or m_pref_any:
-                        if current_prefix is not None and buf:
-                            # Drain multi-triples before finalizing the tail buffer
+                    if m_full_lead or m_pref_lead:
+                        # finalize previous row if it is complete enough
+                        if (
+                            current_prefix is not None
+                            and buf
+                            and MONEY3_ANY.search(_flat(buf))
+                        ):
                             buf = (
                                 _drain_if_multi_triples(
                                     current_prefix, buf, transactions
@@ -177,29 +183,73 @@ def parse(path: str) -> List[Dict[str, str]]:
                             if row:
                                 transactions.append(row)
                             buf = []
-                        if m_full_line or m_full_any:
-                            full = (m_full_line or m_full_any).group(1)
+
+                        if m_full_lead:
+                            full = m_full_lead.group(1)
+                            rest = (m_full_lead.group(2) or "").strip()
+                            current_prefix = full[:-5]
+                            # seed mm:ss so _make_row can reconstruct HH:MM:SS
+                            buf.append(full[-5:])
+                            if rest:
+                                buf.append(rest)
+                        else:
+                            pref = m_pref_lead.group(1)
+                            rest = (m_pref_lead.group(2) or "").strip()
+                            current_prefix = pref
+                            if rest:
+                                buf.append(rest)
+
+                        i += 1
+                        continue
+
+                    # --- existing timestamp-only lines
+                    m_full_line = RX_FULL_LINE.match(l)
+                    m_pref_line = RX_PREFIX_LINE.match(l)
+
+                    is_mmss_line = RX_MMSS_LINE.match(l) is not None
+                    is_mmss_any = RX_MMSS_ANY.fullmatch(l) is not None
+
+                    # New timestamp (full or prefix) → finalize previous row (only if it looks complete)
+                    if m_full_line or m_pref_line:
+                        if (
+                            current_prefix is not None
+                            and buf
+                            and MONEY3_ANY.search(_flat(buf))
+                        ):
+                            buf = (
+                                _drain_if_multi_triples(
+                                    current_prefix, buf, transactions
+                                )
+                                or buf
+                            )
+                            row = _make_row(current_prefix, buf)
+                            if row:
+                                transactions.append(row)
+                            buf = []
+
+                        if m_full_line:
+                            full = m_full_line.group(1)
                             current_prefix = full[:-5]
                             buf.append(full[-5:])
                         else:
-                            current_prefix = (m_pref_line or m_pref_any).group(1)
+                            current_prefix = m_pref_line.group(1)
+
                         i += 1
                         continue
 
                     # Fresh MM:SS + existing complete row → split
                     if (is_mmss_line or is_mmss_any) and current_prefix is not None:
-                        # Drain if buffer already holds >1 triples
                         buf = (
                             _drain_if_multi_triples(current_prefix, buf, transactions)
                             or buf
                         )
-                        # If buffer now has at least one triple, flush one row
+
                         if MONEY3_ANY.search(_flat(buf)):
                             row = _make_row(current_prefix, buf)
                             if row:
                                 transactions.append(row)
                             buf = []
-                        # start new row with this mm:ss token
+
                         buf.append(l[-5:] if len(l) >= 5 else l)
                         i += 1
                         continue
@@ -211,7 +261,6 @@ def parse(path: str) -> List[Dict[str, str]]:
                         and MONEY3_ANY.search(_flat(buf))
                         and RX_REF_TOKEN.search(l)
                     ):
-                        # Flush one row from current buffer first
                         buf = (
                             _drain_if_multi_triples(current_prefix, buf, transactions)
                             or buf
@@ -226,7 +275,6 @@ def parse(path: str) -> List[Dict[str, str]]:
                     # Otherwise, keep collecting
                     if current_prefix is not None:
                         buf.append(l)
-                        # If this append caused multiple triples, peel leftmost now
                         buf = (
                             _drain_if_multi_triples(current_prefix, buf, transactions)
                             or buf
@@ -234,8 +282,9 @@ def parse(path: str) -> List[Dict[str, str]]:
 
                     i += 1
 
-                # Flush page tail
-                if current_prefix is not None and buf:
+                # DO NOT force-flush page tail unless it already has a triple.
+                # Otherwise this tail is probably a row that continues on next page.
+                if current_prefix is not None and buf and MONEY3_ANY.search(_flat(buf)):
                     buf = (
                         _drain_if_multi_triples(current_prefix, buf, transactions)
                         or buf
@@ -243,8 +292,16 @@ def parse(path: str) -> List[Dict[str, str]]:
                     row = _make_row(current_prefix, buf)
                     if row:
                         transactions.append(row)
+                    buf = []
 
-        # Post-process in your pipeline
+        # Final flush after last page (if any)
+        if current_prefix is not None and buf and MONEY3_ANY.search(_flat(buf)):
+            buf = _drain_if_multi_triples(current_prefix, buf, transactions) or buf
+            row = _make_row(current_prefix, buf)
+            if row:
+                transactions.append(row)
+            buf = []
+
         transactions = merge_and_drop_year_artifacts(transactions)
         transactions = calculate_checks(
             [t for t in transactions if t["TXN_DATE"] or t["VAL_DATE"]]
