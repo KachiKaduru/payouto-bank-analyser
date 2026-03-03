@@ -31,6 +31,7 @@ FIELD_MAPPINGS = {
         "create date",
         "actual transaction date",
         "actual\ntransaction\ndate",
+        "transactio\nn date",
     ],
     "VAL_DATE": [
         "value",
@@ -43,6 +44,7 @@ FIELD_MAPPINGS = {
         "value\ndate",
         "VAL_DATE",
         "date/time",
+        "valu\ne\ndate",
     ],
     "REFERENCE": [
         "reference",
