@@ -264,6 +264,9 @@ def normalize_date(date_str: str) -> str:
 
     s = date_str.strip()
 
+    # Remove ordinal suffixes: 1st, 2nd, 3rd, 4th ...
+    s = re.sub(r"(\d{1,2})(st|nd|rd|th)\b", r"\1", s, flags=re.IGNORECASE)
+
     # Remove trailing 'Page', 'Page 2', 'Page-4', etc.
     s = re.sub(r"[Pp]age[\s\-]?\d*$", "", s).strip()
 
@@ -274,7 +277,7 @@ def normalize_date(date_str: str) -> str:
     s = re.sub(r"\s+", " ", s)
 
     # Collapse spaces occurring *between digits* (e.g. '2 0 2 5' -> '2025')
-    s = re.sub(r"(?<=\d)\s+(?=\d)", "", s)
+    s = re.sub(r"\b(\d)\s+(\d)\s+(\d)\s+(\d)\b", r"\1\2\3\4", s)
 
     # Handle formats like '01Jan,2025' or '1Jan,2025'
     m = re.match(r"^(\d{1,2})([A-Za-z]{3,9}),(\d{4})$", s)
@@ -306,6 +309,8 @@ def normalize_date(date_str: str) -> str:
                 "%d %B %Y",
                 "%d-%B-%Y",
                 "%d/%b/%y",
+                "%B %d %Y",
+                "%b %d %Y",
             ):
                 try:
                     dt = datetime.strptime(collapsed, fmt)
@@ -346,6 +351,8 @@ def normalize_date(date_str: str) -> str:
         "%d %B %Y",
         "%d-%B-%Y",
         "%d/%b/%y",
+        "%B %d %Y",
+        "%b %d %Y",
     ]
 
     for fmt in date_formats:
