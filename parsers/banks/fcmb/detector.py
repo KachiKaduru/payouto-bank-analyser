@@ -2,7 +2,9 @@ import pdfplumber
 import re
 import sys
 from typing import Callable, Optional, List, Dict
+
 from .universal import parse as parse_universal
+
 from .model_01 import parse as parse_model_01
 from .model_02 import parse as parse_model_02
 from .model_fixed import parse as parse_model_fixed
