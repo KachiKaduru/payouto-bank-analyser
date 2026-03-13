@@ -4,7 +4,13 @@ import re
 import pdfplumber
 from typing import List, Dict, Optional, Tuple
 
-from utils import normalize_date, to_float, calculate_checks, STANDARDIZED_ROW
+from utils import (
+    normalize_date,
+    normalize_money,
+    to_float,
+    calculate_checks,
+    STANDARDIZED_ROW,
+)
 
 # --- Month pattern: only real months (prevents matching words like "salary") ---
 MONTH_PATTERN = r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
@@ -16,7 +22,7 @@ FULL_DATE_RE = re.compile(
 )
 DATE_START_RE = re.compile(rf"^\s*(\d{{1,2}})[-/ ]*({MONTH_PATTERN})\b", re.I)
 YEAR_RE = re.compile(r"\b(20\d{2}|19\d{2}|\d{2})\b")
-MONEY_RE = re.compile(r"[\d,]+\.\d{2}")
+MONEY_RE = re.compile(r"\(?-?[\d,]+\.\d{2}\)?")
 REF_RE = re.compile(r"\b([A-Za-z]\d{3,})\b", re.I)
 
 
@@ -296,8 +302,8 @@ def _build_transaction(
 
         # Normalize numeric tokens → remove spaces/commas
         money_tokens = [t.replace(" ", "") for t in money_tokens]
-        amount_str = money_tokens[-2].replace(",", "")
-        balance_str = money_tokens[-1].replace(",", "")
+        amount_str = normalize_money(money_tokens[-2])
+        balance_str = normalize_money(money_tokens[-1])
 
         amt_val = to_float(amount_str)
         bal_val = to_float(balance_str)
@@ -334,7 +340,7 @@ def _build_transaction(
                 # Otherwise assume incoming credit (e.g., salary, transfer, deposit)
                 credit = f"{amt_val:.2f}"
 
-        # 8️⃣ Construct standardized transaction dict
+        # 8. Construct standardized transaction dict
         txn = STANDARDIZED_ROW.copy()
         txn.update(
             {
