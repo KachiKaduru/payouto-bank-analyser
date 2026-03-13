@@ -5,7 +5,6 @@ from datetime import datetime
 from PyPDF2 import PdfReader, PdfWriter
 import tempfile
 
-# from app.parsers.models import TransactionRow
 
 TOLERANCE = 0.01
 
@@ -23,15 +22,16 @@ FIELD_MAPPINGS = {
         "transaction date",
         "date",
         "post date",
+        # "post\ndate",
         "posted date",
-        "trans. date",
         "posted\ndate",
+        "trans. date",
         "trans\ndate",
         "transaction\ndate",
         "create date",
         "actual transaction date",
         "actual\ntransaction\ndate",
-        "transactio\nn date",
+        "trans. time",
     ],
     "VAL_DATE": [
         "value",
@@ -44,7 +44,6 @@ FIELD_MAPPINGS = {
         "value\ndate",
         "VAL_DATE",
         "date/time",
-        "valu\ne\ndate",
     ],
     "REFERENCE": [
         "reference",
@@ -64,12 +63,14 @@ FIELD_MAPPINGS = {
         "DOC NO.",
         "cheque\nnumber",
         "category",
+        "transaction\nreference",
     ],
     "REMARKS": [
         "remarks",
         "description",
         "descrip�on",
         "descrip\x00on",
+        "descripon",
         "descrip\ufffdon",
         "narration",
         "comment",
@@ -82,6 +83,7 @@ FIELD_MAPPINGS = {
         "description/payee/memo",
         "TRANSACCTNAMION DESC",
         "transaction remarks",
+        "particulars",
     ],
     "DEBIT": [
         "dr",
@@ -98,6 +100,8 @@ FIELD_MAPPINGS = {
         "withdrawal",
         "withdrawals",
         "withdrawal(DR)",
+        "(₦)\ndebit",
+        "debit amount\nin ngn",
     ],
     "CREDIT": [
         "cr",
@@ -116,6 +120,8 @@ FIELD_MAPPINGS = {
         "pay in",
         "lodgement",
         "lodgements",
+        "(₦)\ncredit",
+        "credit\namount in\nngn",
     ],
     "BALANCE": [
         "bal",
@@ -128,6 +134,8 @@ FIELD_MAPPINGS = {
         "balance(₦)",
         "balance(\u20a6)",
         "",
+        "(\nbalance after\n₦)",
+        "balance in\nngn",
     ],
     "AMOUNT": [
         "amount",
@@ -276,7 +284,11 @@ def normalize_date(date_str: str) -> str:
     s = re.sub(r"\s*:\s*", ":", s)
     s = re.sub(r"\s+", " ", s)
 
+    # Remove trailing time component if present
+    s = re.sub(r"[T\s]?\d{1,2}:\d{2}(:\d{2})?$", "", s)
+
     # Collapse spaces occurring *between digits* (e.g. '2 0 2 5' -> '2025')
+    # s = re.sub(r"(?<=\d)\s+(?=\d)", "", s)
     s = re.sub(r"\b(\d)\s+(\d)\s+(\d)\s+(\d)\b", r"\1\2\3\4", s)
 
     # Handle formats like '01Jan,2025' or '1Jan,2025'
@@ -369,11 +381,33 @@ def normalize_date(date_str: str) -> str:
     return date_str
 
 
+def normalize_whitespace(text: str) -> str:
+    """
+    Merge multi-line narration into 1 line, collapse repeated spaces,
+    and insert a space after slashes where needed.
+    """
+    if not text:
+        return ""
+
+    # Replace newline with space
+    text = text.replace("\n", " ")
+
+    # Collapse multiple spaces
+    text = re.sub(r"\s+", " ", text)
+
+    # Fix slashes: "ABC/DEF" → "ABC / DEF"
+    text = re.sub(r"/(?=\w)", " / ", text)
+
+    return text.strip()
+
+
 # ------------------------
 # COLUMN / ROW HELPERS
 # ------------------------
 def normalize_column_name(col: str) -> str:
     if not col:
+        return ""
+    if col in ["s/n", "sn", "s n"]:
         return ""
     col_lower = col.lower().strip()
     for standard, aliases in FIELD_MAPPINGS.items():
@@ -394,9 +428,15 @@ def calculate_checks(transactions: List[Dict[str, str]]) -> List[Dict[str, str]]
         if prev_balance is not None:
             expected = round(prev_balance - debit + credit, 2)
             actual = round(current_balance, 2)
-            check = abs(expected - actual) <= TOLERANCE
-            txn["Check"] = "TRUE" if check else "FALSE"
-            txn["Check 2"] = f"{abs(expected - actual):.2f}" if not check else "0.00"
+            diff = abs(expected - actual)
+
+            # Guard clause for small differences
+            if diff < 0.1:
+                txn["Check"] = "TRUE"
+            else:
+                txn["Check"] = "FALSE"
+
+            txn["Check 2"] = f"{diff:.2f}"
         else:
             txn["Check"] = "TRUE"
             txn["Check 2"] = "0.00"
