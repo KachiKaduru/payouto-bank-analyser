@@ -2,12 +2,18 @@ import pdfplumber
 import re
 import sys
 from typing import Callable, Optional, List, Dict
+
 from .universal import parse as parse_universal
+
 from .model_01 import parse as parse_model_01
+from .model_02 import parse as parse_model_02
+from .model_fixed import parse as parse_model_fixed
 
 # Map variant keys directly to their parser functions
 PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
     "model_01": parse_model_01,
+    "model_02": parse_model_02,
+    "model_fixed": parse_model_fixed,
 }
 
 # Define text patterns unique to each FCMB statement variant
@@ -19,6 +25,12 @@ VARIANT_PATTERNS = {
         "txn date",
         "val date",
     ],
+    "model_02": [
+        "first city monument bank limited",
+        "a subsidiary of fcmb group plc",
+        "overdraft limit",
+    ],
+    "model_fixed": ["account statement", "summary details"],
     # Add new variants like model_02 here when discovered
 }
 

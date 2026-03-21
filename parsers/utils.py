@@ -71,6 +71,7 @@ FIELD_MAPPINGS = {
         "descrip�on",
         "descrip\x00on",
         "descripon",
+        "descripon",
         "descrip\ufffdon",
         "narration",
         "comment",
@@ -134,6 +135,8 @@ FIELD_MAPPINGS = {
         "balance(₦)",
         "balance(\u20a6)",
         "",
+        "(\nbalance after\n₦)",
+        "balance in\nngn",
         "(\nbalance after\n₦)",
         "balance in\nngn",
         "running balance",
@@ -472,6 +475,7 @@ def parse_text_row(row: List[str], headers: List[str]) -> Dict[str, str]:
     bal_raw = (row_dict.get("BALANCE", "") or "").strip()
     standardized_row["BALANCE"] = f"{to_float(bal_raw):.2f}" if bal_raw else ""
 
+    # return TransactionRow(**standardized_row)
     return standardized_row
 
 

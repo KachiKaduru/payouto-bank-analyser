@@ -2,19 +2,19 @@ import pdfplumber
 import re
 import sys
 from typing import Callable, Optional, List, Dict
+
 from .universal import parse as parse_universal
 
 # Example imports (uncomment as you add more models)
-from .model_01 import parse as parse_001
-from .model_02 import parse as parse_002
-
+# from .model_01 import parse as parse_001
+# from .model_02 import parse as parse_002
 
 # ----------------------------
 # 1. Map variant keys to parsers
 # ----------------------------
 PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
-    "001": parse_001,
-    "002": parse_002,
+    # "001": parse_001,
+    # "002": parse_002,
 }
 
 # ----------------------------
@@ -22,8 +22,8 @@ PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
 # ----------------------------
 VARIANT_PATTERNS = {
     # Example structure
-    "001": ["Name of account", "Transaction description", "Fee"],
-    "002": ["INFLOW VS OUTFLOW"],
+    # "001": ["Transaction details", "Value Date", "Transaction description"],
+    # "002": ["Statement from:", "Stanbic IBTC Bank", "Transaction date"],
 }
 
 
@@ -51,7 +51,7 @@ def detect_variant(path: str) -> Optional[Callable[[str], List[Dict[str, str]]]]
                     for p in patterns
                 ):
                     print(
-                        f"(stanbic_detector): Detected variant: {variant}",
+                        f"(jubilee_bank_detector): Detected variant: {variant}",
                         file=sys.stderr,
                     )
                     return PARSER_MAP.get(variant, parse_universal)
@@ -60,5 +60,5 @@ def detect_variant(path: str) -> Optional[Callable[[str], List[Dict[str, str]]]]
         return parse_universal
 
     except Exception as e:
-        print(f"(stanbic_detector): Error during detection: {e}", file=sys.stderr)
+        print(f"(jubilee_bank_detector): Error during detection: {e}", file=sys.stderr)
         return parse_universal

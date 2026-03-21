@@ -3,13 +3,15 @@ import re
 import sys
 from typing import Callable, Optional, List, Dict
 from .universal import parse as parse_universal
+from .model_01 import parse as parse_001
 
-# Import more as you add variants, e.g.:
-# from .parser_001 import parse as parse_001
+PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
+    "001": parse_001,
+    # "002": parse_002,
+}
 
 VARIANT_PATTERNS = {
-    # Example: Add real patterns from your PDFs
-    # "001": ["Unique Header for Zenith Type 1", re.compile(r"Zenith Pattern 1")],
+    "001": ["Account Statement - Jaiz Portal", "jaizportal."],
     # Add more for 002, etc.
 }
 
