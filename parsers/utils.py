@@ -5,6 +5,7 @@ from datetime import datetime
 from PyPDF2 import PdfReader, PdfWriter
 import tempfile
 
+
 TOLERANCE = 0.01
 
 # ------------------------
@@ -16,18 +17,21 @@ FIELD_MAPPINGS = {
         "txn date",
         "trans",
         "trans date",
+        "tran date",
         "transdate",
         "transaction date",
         "date",
         "post date",
+        # "post\ndate",
         "posted date",
-        "trans. date",
         "posted\ndate",
+        "trans. date",
         "trans\ndate",
         "transaction\ndate",
         "create date",
         "actual transaction date",
         "actual\ntransaction\ndate",
+        "trans. time",
     ],
     "VAL_DATE": [
         "value",
@@ -57,12 +61,16 @@ FIELD_MAPPINGS = {
         "chq no",
         "channel",
         "DOC NO.",
+        "cheque\nnumber",
+        "category",
+        "transaction\nreference",
     ],
     "REMARKS": [
         "remarks",
         "description",
         "descrip�on",
         "descrip\x00on",
+        "descripon",
         "descrip\ufffdon",
         "narration",
         "comment",
@@ -74,6 +82,8 @@ FIELD_MAPPINGS = {
         "REMARKS",
         "description/payee/memo",
         "TRANSACCTNAMION DESC",
+        "transaction remarks",
+        "particulars",
     ],
     "DEBIT": [
         "dr",
@@ -90,6 +100,8 @@ FIELD_MAPPINGS = {
         "withdrawal",
         "withdrawals",
         "withdrawal(DR)",
+        "(₦)\ndebit",
+        "debit amount\nin ngn",
     ],
     "CREDIT": [
         "cr",
@@ -108,6 +120,8 @@ FIELD_MAPPINGS = {
         "pay in",
         "lodgement",
         "lodgements",
+        "(₦)\ncredit",
+        "credit\namount in\nngn",
     ],
     "BALANCE": [
         "bal",
@@ -120,6 +134,9 @@ FIELD_MAPPINGS = {
         "balance(₦)",
         "balance(\u20a6)",
         "",
+        "(\nbalance after\n₦)",
+        "balance in\nngn",
+        "running balance",
     ],
     "AMOUNT": [
         "amount",
@@ -174,7 +191,7 @@ RX_MULTI_WS = re.compile(r"\s+")
 # ------------------------
 def to_float(value: str) -> float:
     value = value.strip() if value else ""
-    if not value or value in {"-", ""}:
+    if not value or value in {"-", "", "--"}:
         return 0.0
     try:
         cleaned = re.sub(r"[^\d.-]", "", value)
@@ -256,6 +273,9 @@ def normalize_date(date_str: str) -> str:
 
     s = date_str.strip()
 
+    # Remove ordinal suffixes: 1st, 2nd, 3rd, 4th ...
+    s = re.sub(r"(\d{1,2})(st|nd|rd|th)\b", r"\1", s, flags=re.IGNORECASE)
+
     # Remove trailing 'Page', 'Page 2', 'Page-4', etc.
     s = re.sub(r"[Pp]age[\s\-]?\d*$", "", s).strip()
 
@@ -265,8 +285,18 @@ def normalize_date(date_str: str) -> str:
     s = re.sub(r"\s*:\s*", ":", s)
     s = re.sub(r"\s+", " ", s)
 
+    # Remove trailing time component if present
+    s = re.sub(r"[T\s]?\d{1,2}:\d{2}(:\d{2})?$", "", s)
+
     # Collapse spaces occurring *between digits* (e.g. '2 0 2 5' -> '2025')
-    s = re.sub(r"(?<=\d)\s+(?=\d)", "", s)
+    # s = re.sub(r"(?<=\d)\s+(?=\d)", "", s)
+    s = re.sub(r"\b(\d)\s+(\d)\s+(\d)\s+(\d)\b", r"\1\2\3\4", s)
+
+    # Handle formats like '01Jan,2025' or '1Jan,2025'
+    m = re.match(r"^(\d{1,2})([A-Za-z]{3,9}),(\d{4})$", s)
+    if m:
+        day, month, year = m.groups()
+        s = f"{day} {month} {year}"
 
     # If there are line breaks, first try a "hard collapse" (good for '06/24/202\n5')
     if "\n" in date_str or "\r" in date_str:
@@ -292,6 +322,8 @@ def normalize_date(date_str: str) -> str:
                 "%d %B %Y",
                 "%d-%B-%Y",
                 "%d/%b/%y",
+                "%B %d %Y",
+                "%b %d %Y",
             ):
                 try:
                     dt = datetime.strptime(collapsed, fmt)
@@ -332,6 +364,8 @@ def normalize_date(date_str: str) -> str:
         "%d %B %Y",
         "%d-%B-%Y",
         "%d/%b/%y",
+        "%B %d %Y",
+        "%b %d %Y",
     ]
 
     for fmt in date_formats:
@@ -373,6 +407,8 @@ def normalize_whitespace(text: str) -> str:
 # ------------------------
 def normalize_column_name(col: str) -> str:
     if not col:
+        return ""
+    if col in ["s/n", "sn", "s n"]:
         return ""
     col_lower = col.lower().strip()
     for standard, aliases in FIELD_MAPPINGS.items():
