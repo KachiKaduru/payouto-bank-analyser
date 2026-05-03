@@ -1,6 +1,6 @@
-import { useDropzone } from "react-dropzone";
-import { useParserStore } from "../_store/useParserStore";
-import type { ParseResponse } from "../_types";
+import {useDropzone} from "react-dropzone";
+import {useParserStore} from "../_store/useParserStore";
+import type {ParseResponse} from "../_types";
 
 export function useUploadHandler() {
   const {
@@ -24,9 +24,9 @@ export function useUploadHandler() {
     }
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const {getRootProps, getInputProps, isDragActive} = useDropzone({
     onDrop,
-    accept: { "application/pdf": [".pdf"] },
+    accept: {"application/pdf": [".pdf"]},
     multiple: false,
   });
 
@@ -58,11 +58,10 @@ export function useUploadHandler() {
         body: formData,
       });
 
-      const json = (await res.json()) as ParseResponse | { error?: string };
+      const json = (await res.json()) as ParseResponse | {error?: string};
 
       if (!res.ok) {
-        const errMsg =
-          (json as { error?: string })?.error || "Failed to parse file. Unknown error.";
+        const errMsg = (json as {error?: string})?.error || "Failed to parse file. Unknown error.";
         if (typeof errMsg === "string" && errMsg.includes("Please provide a password")) {
           setShowPasswordInput(true);
           setError(errMsg);

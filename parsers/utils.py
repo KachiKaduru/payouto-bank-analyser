@@ -3,8 +3,8 @@ import re
 from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 from PyPDF2 import PdfReader, PdfWriter
+import pdfplumber
 import tempfile
-
 
 TOLERANCE = 0.01
 
@@ -22,7 +22,7 @@ FIELD_MAPPINGS = {
         "transaction date",
         "date",
         "post date",
-        # "post\ndate",
+        "post\ndate",
         "posted date",
         "posted\ndate",
         "trans. date",
@@ -70,7 +70,6 @@ FIELD_MAPPINGS = {
         "description",
         "descrip�on",
         "descrip\x00on",
-        "descripon",
         "descripon",
         "descrip\ufffdon",
         "narration",
@@ -135,8 +134,6 @@ FIELD_MAPPINGS = {
         "balance(₦)",
         "balance(\u20a6)",
         "",
-        "(\nbalance after\n₦)",
-        "balance in\nngn",
         "(\nbalance after\n₦)",
         "balance in\nngn",
         "running balance",
@@ -294,6 +291,12 @@ def normalize_date(date_str: str) -> str:
     # Collapse spaces occurring *between digits* (e.g. '2 0 2 5' -> '2025')
     # s = re.sub(r"(?<=\d)\s+(?=\d)", "", s)
     s = re.sub(r"\b(\d)\s+(\d)\s+(\d)\s+(\d)\b", r"\1\2\3\4", s)
+
+    # Handle compact formats like '06MAY2025'
+    m = re.match(r"^(\d{1,2})([A-Za-z]{3})(\d{4})$", s)
+    if m:
+        day, month, year = m.groups()
+        s = f"{day} {month.title()} {year}"
 
     # Handle formats like '01Jan,2025' or '1Jan,2025'
     m = re.match(r"^(\d{1,2})([A-Za-z]{3,9}),(\d{4})$", s)
@@ -615,3 +618,47 @@ def decrypt_pdf(
 
     # Not encrypted
     return pdf_path, effective_path or pdf_path
+
+
+# ---------------------------------------------------------------------------
+# Shared model detection
+# ---------------------------------------------------------------------------
+
+
+def detect_model(path: str, variant_patterns: dict, max_pages: int = 1) -> str:
+    """Match *variant_patterns* against PDF text and return the model key.
+
+    Parameters
+    ----------
+    path : str
+        Path to the PDF file.
+    variant_patterns : dict
+        ``{ "model_key": [pattern, ...], ... }`` where each pattern is either a
+        plain string (checked with ``in``) or a compiled ``re.Pattern``.
+    max_pages : int
+        How many pages of text to consider (default 1).  Set higher for banks
+        whose distinguishing markers can appear on later pages (e.g. access).
+
+    Returns
+    -------
+    str
+        The first matching variant key, or ``"universal"`` when nothing matches.
+    """
+    try:
+        with pdfplumber.open(path) as pdf:
+            if not pdf.pages:
+                return "universal"
+            chunks = []
+            for i in range(min(max_pages, len(pdf.pages))):
+                chunks.append(pdf.pages[i].extract_text() or "")
+            text_lower = "\n".join(chunks).lower()
+            for variant, patterns in variant_patterns.items():
+                if all(
+                    (isinstance(p, str) and p.lower() in text_lower)
+                    or (isinstance(p, re.Pattern) and p.search(text_lower))
+                    for p in patterns
+                ):
+                    return variant
+        return "universal"
+    except Exception:
+        return "universal"
