@@ -1,288 +1,313 @@
-# banks/stanbic/universal.py
+# banks/stanbic/universal.py  (optimized)
 import sys
 import re
 import pdfplumber
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
-from utils import normalize_date, to_float, parse_text_row, calculate_checks
+from utils import normalize_date, to_float, calculate_checks
 
-# Patterns
+# ---------------------------------------------------------------------------
+# Compiled patterns
+# ---------------------------------------------------------------------------
 DATE_TOKEN = re.compile(r"\b\d{2}[-/]\d{2}[-/]\d{4}\b")
-DATE_LINE = re.compile(r"\b\d{2}[-/]\d{2}[-/]\d{4}\b.*\b\d{2}[-/]\d{2}[-/]\d{4}\b")
+# Requires exactly two date tokens on the same line
+DATE_LINE = re.compile(r"\b(\d{2}[-/]\d{2}[-/]\d{4})\b.+?\b(\d{2}[-/]\d{2}[-/]\d{4})\b")
 AMOUNT_RE = re.compile(r"\d{1,3}(?:,\d{3})*\.\d{2}(?:\s?(?:CR|DR))?", re.IGNORECASE)
+STRIP_CR_DR = re.compile(r"\s*(CR|DR)\s*$", re.IGNORECASE)
 
-FOOTER_PATTERNS = [
-    re.compile(r"^Page\s+\d+\s+of", re.IGNORECASE),
-    re.compile(r"You received this electronic Statement", re.IGNORECASE),
-    re.compile(r"stanbicibtcbank\.com", re.IGNORECASE),
-    re.compile(r"0700 CALL STANBIC", re.IGNORECASE),
-]
+# Single combined footer pattern (one RE is faster than iterating four)
+_FOOTER_PAT = re.compile(
+    r"Page\s+\d+\s+of"
+    r"|You received this electronic Statement"
+    r"|stanbicibtcbank\.com"
+    r"|0700 CALL STANBIC",
+    re.IGNORECASE,
+)
+
+# Header sentinel patterns
+_HEADER_PAT = re.compile(r"Posting Date.*Balance|TRANSACTIONS", re.IGNORECASE)
 
 HEADERS = ["TXN_DATE", "VAL_DATE", "REMARKS", "DEBIT", "CREDIT", "BALANCE"]
 
+# ---------------------------------------------------------------------------
+# Tiny helpers
+# ---------------------------------------------------------------------------
+
 
 def is_footer(line: str) -> bool:
-    if not line:
-        return False
-    for p in FOOTER_PATTERNS:
-        if p.search(line):
-            return True
-    return False
+    return bool(line and _FOOTER_PAT.search(line))
 
 
 def strip_cr_dr(s: str) -> str:
-    return re.sub(r"\s*(CR|DR)\s*$", "", s, flags=re.IGNORECASE).strip()
+    return STRIP_CR_DR.sub("", s).strip()
 
 
-def find_opening_balance_from_lines(lines: List[str]) -> Optional[float]:
-    # Look for a line containing "Opening Balance" and extract the first amount on that line (or next tokens)
+# ---------------------------------------------------------------------------
+# Word-line extraction  (shared utility, called once per page)
+# ---------------------------------------------------------------------------
+
+
+def _extract_lines(page) -> List[str]:
+    """Return visual text lines sorted by Y, words sorted by X."""
+    buckets: Dict[float, list] = {}
+    for w in page.extract_words(x_tolerance=2, y_tolerance=3, keep_blank_chars=True):
+        key = round(w["top"], 1)
+        try:
+            buckets[key].append(w)
+        except KeyError:
+            buckets[key] = [w]
+
+    return [
+        " ".join(w["text"] for w in sorted(ws, key=lambda x: x["x0"]))
+        for ws in (v for _, v in sorted(buckets.items()))
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Opening-balance scan
+# ---------------------------------------------------------------------------
+
+
+def _find_opening_balance(lines: List[str]) -> Optional[float]:
+    """Return the first monetary amount after an 'Opening Balance' marker."""
     for i, line in enumerate(lines):
-        if "Opening Balance" in line:
-            m = AMOUNT_RE.search(line)
-            if m:
-                return to_float(strip_cr_dr(m.group(0)))
-            # maybe the next line contains the number
-            if i + 1 < len(lines):
-                m2 = AMOUNT_RE.search(lines[i + 1])
-                if m2:
-                    return to_float(strip_cr_dr(m2.group(0)))
+        if "Opening Balance" not in line:
+            continue
+        m = AMOUNT_RE.search(line)
+        if m:
+            return to_float(strip_cr_dr(m.group(0)))
+        if i + 1 < len(lines):
+            m2 = AMOUNT_RE.search(lines[i + 1])
+            if m2:
+                return to_float(strip_cr_dr(m2.group(0)))
     return None
 
-def build_transaction(
+
+# ---------------------------------------------------------------------------
+# Transaction builder
+# ---------------------------------------------------------------------------
+
+
+def _build_transaction(
     block_lines: List[str],
     date_idx_in_block: int,
     prev_balance: Optional[float],
-    debug: bool = False,
+    debug: bool,
 ) -> Optional[Dict[str, str]]:
-    """
-    block_lines: contiguous lines for this transaction block (includes desc_lines, date_line, post_lines)
-    date_idx_in_block: index inside block_lines for the date_line
-    """
-    # date tokens
     date_line = block_lines[date_idx_in_block]
-    date_tokens = DATE_TOKEN.findall(date_line)
-    if len(date_tokens) < 2:
+
+    # Use capturing-group DATE_LINE to avoid a second findall
+    m = DATE_LINE.search(date_line)
+    if not m:
         if debug:
-            print(
-                f"(stanbic): build_transaction skipped: date_line has <2 dates: {date_line}",
-                file=sys.stderr,
-            )
+            print(f"(stanbic): skipped – <2 dates: {date_line}", file=sys.stderr)
         return None
 
-    txn_date_raw = date_tokens[0]
-    val_date_raw = date_tokens[1]
+    txn_date_raw, val_date_raw = m.group(1), m.group(2)
 
-    # Collect amounts from date_line + post_lines (the block portion after date_line)
-    tail_text = " ".join(block_lines[date_idx_in_block:])
-    amounts = AMOUNT_RE.findall(tail_text)
+    # Scan only the tail portion (date line onward) for amounts
+    tail_lines = block_lines[date_idx_in_block:]
+    amounts = []
+    for ln in tail_lines:
+        amounts.extend(AMOUNT_RE.findall(ln))
 
     if not amounts:
         if debug:
-            print(
-                f"(stanbic): No amounts found in block for date_line: {date_line}",
-                file=sys.stderr,
-            )
+            print(f"(stanbic): no amounts for: {date_line}", file=sys.stderr)
         return None
 
-    # last amount → balance, previous → amount (if available)
     balance_raw = strip_cr_dr(amounts[-1])
     amount_raw = strip_cr_dr(amounts[-2]) if len(amounts) >= 2 else None
 
     try:
-        current_balance = to_float(balance_raw)
-    except Exception:
-        if debug:
-            print(
-                f"(stanbic): Could not parse balance '{balance_raw}' in: {tail_text}",
-                file=sys.stderr,
-            )
-        return None
+        current_balance = float(balance_raw.replace(",", ""))
+    except ValueError:
+        try:
+            current_balance = to_float(balance_raw)
+        except Exception:
+            if debug:
+                print(f"(stanbic): bad balance '{balance_raw}'", file=sys.stderr)
+            return None
 
     amt_val = to_float(amount_raw) if amount_raw is not None else 0.0
 
-    # Determine debit / credit using prev_balance if available
-    debit = "0.00"
-    credit = "0.00"
     if prev_balance is not None:
-        # If balance decreased relative to previous balance → debit
         if current_balance < prev_balance:
             debit = f"{abs(amt_val):.2f}"
+            credit = "0.00"
         else:
+            debit = "0.00"
             credit = f"{abs(amt_val):.2f}"
     else:
-        # If we have no prev_balance, assume debit by default (keeps legacy behaviour)
         debit = f"{abs(amt_val):.2f}"
+        credit = "0.00"
 
-    # Build remarks: desc lines (before date_idx) + post lines (after date_idx), filtered
+    # Remarks: lines before + after the date line, footers excluded
     desc_lines = [
-        l
+        l.strip()
         for l in block_lines[:date_idx_in_block]
         if l and not is_footer(l) and "Posting Date" not in l
     ]
     post_lines = [
-        l
+        l.strip()
         for l in block_lines[date_idx_in_block + 1 :]
         if l and not is_footer(l) and "Posting Date" not in l
     ]
+    remarks = "\n".join(desc_lines + post_lines).strip()
 
-    # remove any leading/trailing stray amount tokens from remarks (they'll be parsed from amounts list)
-    # join with newline to keep structure
-    remarks = "\n".join([ln.strip() for ln in (desc_lines + post_lines)]).strip()
+    # normalize_date already called on raw strings – do it once here
+    txn_date = normalize_date(txn_date_raw)
+    val_date = normalize_date(val_date_raw)
+    bal_str = f"{current_balance:.2f}"
 
-    row = [
-        normalize_date(txn_date_raw),
-        normalize_date(val_date_raw),
-        remarks,
-        debit,
-        credit,
-        f"{current_balance:.2f}",
-    ]
+    row = {
+        "TXN_DATE": txn_date,
+        "VAL_DATE": val_date,
+        "REFERENCE": "",
+        "REMARKS": remarks,
+        "DEBIT": debit,
+        "CREDIT": credit,
+        "BALANCE": bal_str,
+        "Check": "",
+        "Check 2": "",
+    }
 
-    parsed = parse_text_row(row, HEADERS)
     if debug:
         print(
-            f"(stanbic DEBUG) Built txn: TXN={parsed['TXN_DATE']} VAL={parsed['VAL_DATE']} AMT={amount_raw} BAL={balance_raw} REMARKS preview={parsed['REMARKS'][:60]!r}",
+            f"(stanbic DEBUG) TXN={txn_date} VAL={val_date} "
+            f"AMT={amount_raw} BAL={balance_raw} REM={remarks[:60]!r}",
             file=sys.stderr,
         )
-    return parsed
+    return row
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
 
 
 def parse(path: str, debug: bool = False) -> List[Dict[str, str]]:
     transactions: List[Dict[str, str]] = []
     prev_balance: Optional[float] = None
 
+    # Cache extracted lines per page index so pages 0-2 are not re-extracted
+    # during the opening-balance pre-scan and the main loop.
+    page_lines_cache: Dict[int, List[str]] = {}
+
     try:
         with pdfplumber.open(path) as pdf:
-            # Pre-scan entire document for Opening Balance (safe seed for prev_balance)
-            all_lines_for_opening: List[str] = []
-            for p in pdf.pages[
-                :3
-            ]:  # usually opening balance is on first page - check first 3 pages to be safe
-                word_lines = {}
-                for w in p.extract_words(
-                    x_tolerance=2, y_tolerance=3, keep_blank_chars=True
-                ):
-                    word_lines.setdefault(round(w["top"], 1), []).append(w)
-                page_lines = [
-                    " ".join(w["text"] for w in sorted(ws, key=lambda x: x["x0"]))
-                    for _, ws in sorted(word_lines.items())
-                ]
-                all_lines_for_opening.extend(page_lines)
-            opening = find_opening_balance_from_lines(all_lines_for_opening)
+            n_pages = len(pdf.pages)
+
+            # ── Opening-balance pre-scan (first ≤3 pages) ──────────────────
+            prescan_lines: List[str] = []
+            for i in range(min(3, n_pages)):
+                lines = _extract_lines(pdf.pages[i])
+                page_lines_cache[i] = lines  # reuse below
+                prescan_lines.extend(lines)
+
+            opening = _find_opening_balance(prescan_lines)
             if opening is not None:
                 prev_balance = opening
                 if debug:
                     print(
-                        f"(stanbic): Found Opening Balance = {prev_balance:.2f}",
+                        f"(stanbic): Opening Balance = {prev_balance:.2f}",
                         file=sys.stderr,
                     )
 
-            for page_num, page in enumerate(pdf.pages, start=1):
+            # ── Main page loop ──────────────────────────────────────────────
+            for page_num in range(n_pages):
                 if debug:
-                    print(f"(stanbic): Processing page {page_num}", file=sys.stderr)
+                    print(f"(stanbic): Processing page {page_num + 1}", file=sys.stderr)
 
-                # build visual lines ordered by Y coordinate
-                word_lines = {}
-                for w in page.extract_words(
-                    x_tolerance=2, y_tolerance=3, keep_blank_chars=True
-                ):
-                    word_lines.setdefault(round(w["top"], 1), []).append(w)
+                # Use cached lines when available
+                lines = page_lines_cache.get(page_num) or _extract_lines(
+                    pdf.pages[page_num]
+                )
 
-                lines = [
-                    " ".join(w["text"] for w in sorted(ws, key=lambda x: x["x0"]))
-                    for y, ws in sorted(word_lines.items())
-                ]
-
-                # find transactions header
-                header_idx = None
+                # Locate transaction-header line
+                header_idx: Optional[int] = None
                 for i, ln in enumerate(lines):
-                    if "Posting Date" in ln and "Balance" in ln:
-                        header_idx = i
-                        break
-                    if "TRANSACTIONS" in ln:
+                    if _HEADER_PAT.search(ln):
                         header_idx = i
                         break
 
                 if header_idx is None:
-                    # no transaction header on this page — skip unless there are date-lines anyway
-                    # but to avoid pulling page summaries, we skip pages without header
                     if debug:
                         print(
-                            f"(stanbic): No transaction header on page {page_num}, skipping",
+                            f"(stanbic): No header on page {page_num + 1}, skipping",
                             file=sys.stderr,
                         )
                     continue
 
                 start = header_idx + 1
-                # build date indices (lines containing two date tokens)
-                date_indices = [
+
+                # Collect indices of lines that contain two date tokens
+                date_indices: List[int] = [
                     i for i in range(start, len(lines)) if DATE_LINE.search(lines[i])
                 ]
 
                 if not date_indices:
                     if debug:
                         print(
-                            f"(stanbic): No date-lines found on page {page_num}",
+                            f"(stanbic): No date-lines on page {page_num + 1}",
                             file=sys.stderr,
                         )
                     continue
 
-                # build blocks and parse
-                for pos, date_idx in enumerate(date_indices):
+                n_dates = len(date_indices)
+
+                for pos in range(n_dates):
+                    date_idx = date_indices[pos]
                     block_start = start if pos == 0 else date_indices[pos - 1] + 1
                     block_end = (
                         date_indices[pos + 1] - 1
-                        if pos + 1 < len(date_indices)
+                        if pos + 1 < n_dates
                         else len(lines) - 1
                     )
 
-                    # trim footer lines at block_end
+                    # Trim trailing footer lines
                     while block_end >= date_idx and is_footer(lines[block_end]):
                         block_end -= 1
 
-                    block_lines = [
-                        lines[i]
-                        for i in range(block_start, block_end + 1)
-                        if lines[i].strip() and not is_footer(lines[i])
-                    ]
+                    # Build block, filtering empties and footers in one pass
+                    block_lines: List[str] = []
+                    date_idx_in_block: Optional[int] = None
 
-                    # find index of date line inside block_lines
-                    # date_idx_in_block = index of the line containing the two dates
-                    # (map global index to block index)
-                    try:
-                        date_idx_in_block = next(
-                            idx
-                            for idx, _ in enumerate(block_lines)
-                            if DATE_LINE.search(block_lines[idx])
-                        )
-                    except StopIteration:
-                        # fallback: try to locate by matching the original global date line
-                        # compute global line for this date_idx and find it
-                        global_date_line = lines[date_idx]
-                        try:
-                            date_idx_in_block = block_lines.index(global_date_line)
-                        except ValueError:
-                            if debug:
-                                print(
-                                    f"(stanbic): Could not locate date-line inside its block (page {page_num}), skipping block.",
-                                    file=sys.stderr,
-                                )
+                    for gi in range(block_start, block_end + 1):
+                        ln = lines[gi]
+                        if not ln.strip() or is_footer(ln):
                             continue
+                        if gi == date_idx:
+                            date_idx_in_block = len(block_lines)
+                        block_lines.append(ln)
 
-                    txn = build_transaction(
-                        block_lines, date_idx_in_block, prev_balance, debug=debug
+                    # Fallback: scan for first DATE_LINE inside block
+                    if date_idx_in_block is None:
+                        for idx, bl in enumerate(block_lines):
+                            if DATE_LINE.search(bl):
+                                date_idx_in_block = idx
+                                break
+
+                    if date_idx_in_block is None:
+                        if debug:
+                            print(
+                                f"(stanbic): date-line missing from block (page {page_num + 1}), skipping",
+                                file=sys.stderr,
+                            )
+                        continue
+
+                    txn = _build_transaction(
+                        block_lines, date_idx_in_block, prev_balance, debug
                     )
                     if txn:
                         transactions.append(txn)
                         try:
+                            prev_balance = float(txn["BALANCE"].replace(",", ""))
+                        except ValueError:
                             prev_balance = to_float(txn["BALANCE"])
-                        except Exception:
-                            # leave prev_balance unchanged if parse fails
-                            pass
 
     except Exception as e:
         print(f"Error processing Stanbic statement: {e}", file=sys.stderr)
         return []
 
-    # final checks and normalization
     return calculate_checks(transactions)

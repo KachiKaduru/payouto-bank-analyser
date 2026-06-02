@@ -7,6 +7,7 @@ export const banksList = [
   {value: "fcmb", label: "FCMB"},
   {value: "fidelity", label: "Fidelity Bank"},
   {value: "first_bank", label: "First Bank"},
+  {value: "firstmonie", label: "First Monie"},
   {value: "gtb", label: "GT Bank"},
   {value: "globus", label: "Globus Bank"},
   {value: "jaiz", label: "JAIZ Bank"},
