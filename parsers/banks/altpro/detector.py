@@ -19,11 +19,9 @@ PARSER_MAP: Dict[str, Callable[[str], List[Dict[str, str]]]] = {
 VARIANT_PATTERNS = {
     # Example structure
     "model_01": [
-        # "DATE NARRATION MONEY OUT MONEY IN BALANCE",
-        "date narration money out money in balance",
-        # "Statement Period",
+        "date narration",
+        "balance",
     ],
-    # "model_002": ["Statement from:", "Stanbic IBTC Bank", "Transaction date"],
 }
 
 
