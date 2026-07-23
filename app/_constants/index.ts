@@ -12,6 +12,7 @@ export const banksList = [
   {value: "globus", label: "Globus Bank"},
   {value: "jaiz", label: "JAIZ Bank"},
   {value: "jubilee_bank", label: "Jubilee Life Mortgage Bank"},
+  {value: "keystone", label: "Keystone Bank Limited"},
   {value: "kuda", label: "Kuda MFB"},
   {value: "lotus", label: "Lotus Bank"},
   {value: "moniepoint", label: "Moniepoint MFB"},
