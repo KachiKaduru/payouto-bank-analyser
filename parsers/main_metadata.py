@@ -113,26 +113,76 @@ def _norm_date(s: str) -> str:
 
 
 def _peek_bank(text: str) -> Optional[str]:
-    # quick bank guess by banner words on header/footer
+    # Quick bank guess by banner words on header/footer
     head = "\n".join(text.splitlines()[:20]).upper()
+
     for b in LABELS["bank"]:
         if b in head:
+            if b in ("FIRST BANK", "FIRSTBANK"):
+                return "FIRST BANK"
             return b
+
+    # First Bank statements may not explicitly print "FIRST BANK"
+    # in the first 20 lines. Use distinctive First Bank wording.
+    if "FIRST FLEXI SAVINGS" in head or "FIRSTCONTACT" in head:
+        return "FIRST BANK"
+
     return None
 
 
 def _period(text: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
-    raw = _find_first_label_line(text, LABELS["period"])
-    if raw:
-        # Example: "01-Mar-2025 TO 12-Aug-2025" | "01/03/2025 to 12/08/2025"
-        m = re.search(r"(.+?)\s+(?:to|TO|-|–)\s+(.+)", raw)
-        if m:
-            return _norm_date(m.group(1).strip()), _norm_date(m.group(2).strip()), raw
-    # Fallback to separate labels
-    start = _first_date(_find_first_label_line(text, LABELS["start_date"]))
-    end = _first_date(_find_first_label_line(text, LABELS["end_date"]))
-    return start, end, raw
+    # First Bank format:
+    # "Please find below your bank statement for the period:
+    # 01-Jan-2025 To 18-Jul-2025"
 
+    first_bank_match = re.search(
+        r"for\s+the\s+period\s*:\s*"
+        r"(\d{1,2}[-/][A-Za-z]{3,9}[-/]\d{4})"
+        r"\s+to\s+"
+        r"(\d{1,2}[-/][A-Za-z]{3,9}[-/]\d{4})",
+        text,
+        re.IGNORECASE,
+    )
+
+    if first_bank_match:
+        start_raw = first_bank_match.group(1)
+        end_raw = first_bank_match.group(2)
+
+        return (
+            _norm_date(start_raw),
+            _norm_date(end_raw),
+            f"{start_raw} To {end_raw}",
+        )
+
+    # Existing period-label logic
+    raw = _find_first_label_line(text, LABELS["period"])
+
+    if raw:
+        m = re.search(
+            r"(\d{1,2}[-/][A-Za-z]{3,9}[-/]\d{4})"
+            r"\s+(?:to|-|–)\s+"
+            r"(\d{1,2}[-/][A-Za-z]{3,9}[-/]\d{4})",
+            raw,
+            re.IGNORECASE,
+        )
+
+        if m:
+            return (
+                _norm_date(m.group(1)),
+                _norm_date(m.group(2)),
+                f"{m.group(1)} To {m.group(2)}",
+            )
+
+    # Existing start/end-date fallback
+    start = _first_date(
+        _find_first_label_line(text, LABELS["start_date"])
+    )
+
+    end = _first_date(
+        _find_first_label_line(text, LABELS["end_date"])
+    )
+
+    return start, end, raw
 
 def extract_metadata(path: str) -> Dict:
     meta: Dict[str, Optional[str]] = {
@@ -170,6 +220,36 @@ def extract_metadata(path: str) -> Dict:
         )
         meta["currency"] = _find_first_label_line(text, LABELS["currency"])
         meta["account_type"] = _find_first_label_line(text, LABELS["account_type"])
+            # First Bank-specific metadata cleanup
+    if meta["bank"] == "FIRST BANK":
+
+        # Account name ends before "Available Balance"
+        if meta["account_name"]:
+            meta["account_name"] = re.split(
+                r"\s+Available\s+Balance\s*:",
+                meta["account_name"],
+                flags=re.IGNORECASE
+            )[0].strip()
+
+        # Account number: keep the 10-digit NUBAN
+        if meta["account_number"]:
+            match = re.search(r"\d{10}", meta["account_number"])
+            if match:
+                meta["account_number"] = match.group(0)
+
+        # Currency: keep only the currency code
+        if meta["currency"]:
+            match = re.search(r"\b(NGN|USD|GBP|EUR)\b", meta["currency"], re.IGNORECASE)
+            if match:
+                meta["currency"] = match.group(1).upper()
+
+        # Account type ends before "Total Credit"
+        if meta["account_type"]:
+            meta["account_type"] = re.split(
+                r"\s+Total\s+Credit\s*:",
+                meta["account_type"],
+                flags=re.IGNORECASE
+            )[0].strip()
 
         start, end, raw_period = _period(text)
         if start:
